@@ -31,7 +31,7 @@ vehicles:
 ```
 
 `<vehicle>` is the same suffix the integration uses for its entity ids (the
-masked VIN tail, e.g. `800783`). Every entity above exists on a default install:
+masked VIN tail, e.g. `123456`). Every entity above exists on a default install:
 
 | EVCC key | Entity | Notes |
 |---|---|---|
