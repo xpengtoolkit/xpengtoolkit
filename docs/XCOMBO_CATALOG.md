@@ -6,7 +6,7 @@ includes resources that are **not reachable from every editing context in the
 app** — the app only offers the remote-safe subset when you build a
 cloud-executed scene, and two triggers exist *only* in that remote context.
 
-Captured 2026-10-17 against VIN `VIN …800783` (F30 / G9, `carType: FA`,
+Captured 2026-10-17 against VIN `VIN …123456` (F30 / G9, `carType: FA`,
 sale region AU, **XOS 5.9.5.8909**). The menu is identical for every
 `carType` tried (FA, F30, G6, G9, X9, P7, D21, H93, E28A, E38, G02, F57A,
 D02, D03), so this list is the global XOS 5.x X-Combo vocabulary, not a
