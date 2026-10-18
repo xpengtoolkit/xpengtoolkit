@@ -48,14 +48,14 @@ def make_entry_file(directory: str) -> str:
                 {
                     "entry_id": "ABC123",
                     "domain": "xpeng",
-                    "title": "XPENG 800783",
-                    "unique_id": "L1NNSGHA3SB800783",
+                    "title": "XPENG 123456",
+                    "unique_id": "L1NNSGHAXSB123456",
                     "data": {
-                        "client_id": f"xmart:app:800783:{DEVICE_ID}",
+                        "client_id": f"xmart:app:123456:{DEVICE_ID}",
                         "password": "cached",
                         "server": "iot-app-global.xiaopeng.com:8885",
-                        "vin": "L1NNSGHA3SB800783",
-                        "login_tokens": {"accessToken": "tok", "uid": "800783"},
+                        "vin": "L1NNSGHAXSB123456",
+                        "login_tokens": {"accessToken": "tok", "uid": "123456"},
                         "tenant_data": {
                             "deviceId": DEVICE_ID,
                             "keys": {"1": base64.b64encode(b"0123456789abcdef").decode()},
@@ -75,7 +75,7 @@ def make_entry_file(directory: str) -> str:
 def pair() -> creds.CredentialPair:
     return creds.CredentialPair(
         tokens={"accessToken": "tok"}, tenant={"keys": {"1": "x"}},
-        device_id=DEVICE_ID, vin="L1NNSGHA3SB800783", uid="800783",
+        device_id=DEVICE_ID, vin="L1NNSGHAXSB123456", uid="123456",
     )
 
 
@@ -86,8 +86,8 @@ def args_for(*argv: str):
 class PlanTopics(unittest.TestCase):
     def test_default_subscribes_your_own_user_channels(self) -> None:
         topics = cap.plan_topics(pair(), args_for("--dry-run"))
-        self.assertIn("Xmart/Msg/User/800783", topics)
-        self.assertIn("Xmart/MsgV2/User/800783", topics)
+        self.assertIn("Xmart/Msg/User/123456", topics)
+        self.assertIn("Xmart/MsgV2/User/123456", topics)
 
     def test_default_includes_the_can_candidates(self) -> None:
         topics = cap.plan_topics(pair(), args_for("--dry-run"))
@@ -104,21 +104,21 @@ class PlanTopics(unittest.TestCase):
 
     def test_no_can_candidates_leaves_only_explicit_topics(self) -> None:
         topics = cap.plan_topics(pair(), args_for("--dry-run", "--no-can-candidates", "-w", "Xmart/x"))
-        self.assertEqual(topics, ["Xmart/x", "Xmart/Msg/User/800783", "Xmart/MsgV2/User/800783"])
+        self.assertEqual(topics, ["Xmart/x", "Xmart/Msg/User/123456", "Xmart/MsgV2/User/123456"])
 
     def test_duplicates_are_dropped_and_order_kept(self) -> None:
         topics = cap.plan_topics(
             pair(),
-            args_for("--dry-run", "-w", "Xmart/Msg/User/800783", "-w", "Xmart/Car/+/State/CanPack1s"),
+            args_for("--dry-run", "-w", "Xmart/Msg/User/123456", "-w", "Xmart/Car/+/State/CanPack1s"),
         )
         self.assertEqual(len(topics), len(set(topics)))
-        self.assertEqual(topics[0], "Xmart/Msg/User/800783")
+        self.assertEqual(topics[0], "Xmart/Msg/User/123456")
 
     def test_wide_topics_named_as_wide(self) -> None:
         topics = cap.plan_topics(pair(), args_for("--dry-run", "-w", "#"))
         self.assertIn("#", cap.wide_topics(topics))
         self.assertIn("Xmart/Car/+/State/CanPack1s", cap.wide_topics(topics))
-        self.assertNotIn("Xmart/Msg/User/800783", cap.wide_topics(topics))
+        self.assertNotIn("Xmart/Msg/User/123456", cap.wide_topics(topics))
 
     def test_shared_subscriptions_are_not_defaulted(self) -> None:
         # Subscribing to a $queue group takes messages away from the other
@@ -231,34 +231,34 @@ class ConnectionIdentity(unittest.TestCase):
     def _recorder(self, mode: str):
         args = args_for("--dry-run", "--client-id-mode", mode)
         recorder = cap.Recorder(pair(), args, ["Xmart/test"])
-        recorder._creds = {"clientId": "xmart:app:800783:abc123", "username": ""}
+        recorder._creds = {"clientId": "xmart:app:123456:abc123", "username": ""}
         return recorder
 
     def test_unique_derives_a_different_client_id(self) -> None:
         client_id, username = self._recorder("unique")._connection_identity()
-        self.assertNotEqual(client_id, "xmart:app:800783:abc123")
-        self.assertTrue(client_id.startswith("xmart:app:800783:abc123"))
+        self.assertNotEqual(client_id, "xmart:app:123456:abc123")
+        self.assertTrue(client_id.startswith("xmart:app:123456:abc123"))
         # The username is what the broker authorises, so it must not change.
-        self.assertEqual(username, "xmart:app:800783:abc123")
+        self.assertEqual(username, "xmart:app:123456:abc123")
 
     def test_unique_is_stable_across_rotations(self) -> None:
         recorder = self._recorder("unique")
         first = recorder._connection_identity()
-        recorder._creds["clientId"] = "xmart:app:800783:def456"
+        recorder._creds["clientId"] = "xmart:app:123456:def456"
         second = recorder._connection_identity()
         # A fresh suffix per rotation would open a new session every 45s.
         self.assertEqual(first[0].split("-cap")[1], second[0].split("-cap")[1])
 
     def test_shared_reproduces_the_integration_identity(self) -> None:
         client_id, username = self._recorder("shared")._connection_identity()
-        self.assertEqual(client_id, "xmart:app:800783:abc123")
-        self.assertEqual(username, "xmart:app:800783:abc123")
+        self.assertEqual(client_id, "xmart:app:123456:abc123")
+        self.assertEqual(username, "xmart:app:123456:abc123")
 
     def test_minted_username_is_preferred_when_the_api_returns_one(self) -> None:
         recorder = self._recorder("unique")
-        recorder._creds["username"] = "xmart:app:800783:abc123"
+        recorder._creds["username"] = "xmart:app:123456:abc123"
         _client_id, username = recorder._connection_identity()
-        self.assertEqual(username, "xmart:app:800783:abc123")
+        self.assertEqual(username, "xmart:app:123456:abc123")
 
     def test_missing_entry_file_exits_two(self) -> None:
         code = cap.main(["--dry-run", "--entry-file", "/nope/core.config_entries"])

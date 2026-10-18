@@ -44,16 +44,16 @@ def entry(**overrides) -> dict:
     base = {
         "entry_id": "ABC123",
         "domain": "xpeng",
-        "title": "XPENG 800783",
-        "unique_id": "L1NNSGHA3SB800783",
+        "title": "XPENG 123456",
+        "unique_id": "L1NNSGHAXSB123456",
         "data": {
-            "client_id": f"xmart:app:800783:{DEVICE_ID}",
+            "client_id": f"xmart:app:123456:{DEVICE_ID}",
             "password": "cached-password",
             "server": "iot-app-global.xiaopeng.com:8885",
-            "vin": "L1NNSGHA3SB800783",
+            "vin": "L1NNSGHAXSB123456",
             "login_tokens": {
                 "accessToken": ACCESS_TOKEN,
-                "uid": "800783",
+                "uid": "123456",
                 "account_email": "someone@example.com",
             },
             "tenant_data": {"deviceId": DEVICE_ID, "keys": keys_pool()},
@@ -70,8 +70,8 @@ def entry(**overrides) -> dict:
 class PairFromEntry(unittest.TestCase):
     def test_entry_copy_is_used_first(self) -> None:
         pair = C.pair_from_entry(entry())
-        self.assertEqual(pair.uid, "800783")
-        self.assertEqual(pair.vin, "L1NNSGHA3SB800783")
+        self.assertEqual(pair.uid, "123456")
+        self.assertEqual(pair.vin, "L1NNSGHAXSB123456")
         self.assertEqual(pair.device_id, DEVICE_ID)
         self.assertIn("login_tokens", pair.origin)
         self.assertTrue(pair.can_mint)
@@ -84,7 +84,7 @@ class PairFromEntry(unittest.TestCase):
     def test_uid_derived_from_client_id_when_tokens_lack_one(self) -> None:
         tokens = {"accessToken": ACCESS_TOKEN}
         pair = C.pair_from_entry(entry(data={"login_tokens": tokens}))
-        self.assertEqual(pair.uid, "800783")
+        self.assertEqual(pair.uid, "123456")
 
     def test_cannot_mint_without_a_key_pool(self) -> None:
         pair = C.pair_from_entry(entry(data={"tenant_data": {"deviceId": DEVICE_ID}}))
@@ -114,7 +114,7 @@ class SecretsStayIn(unittest.TestCase):
 
     def test_describe_is_safe_for_metadata(self) -> None:
         described = C.pair_from_entry(entry()).describe()
-        self.assertEqual(described["vin"], "L1NNSGHA3SB800783")
+        self.assertEqual(described["vin"], "L1NNSGHAXSB123456")
         self.assertTrue(described["device_id"].endswith("…"))
 
     def test_auth_probe_uses_the_tail(self) -> None:
@@ -134,7 +134,7 @@ class FileFallback(unittest.TestCase):
         os.makedirs(secrets)
         # The onboarding tool writes this wrapper; other paths write the bare object.
         with open(os.path.join(secrets, "tokens.json"), "w", encoding="utf-8") as fh:
-            json.dump({"json": {"accessToken": ACCESS_TOKEN, "uid": "800783"}}, fh)
+            json.dump({"json": {"accessToken": ACCESS_TOKEN, "uid": "123456"}}, fh)
         with open(os.path.join(secrets, "tenant.json"), "w", encoding="utf-8") as fh:
             json.dump({"deviceId": DEVICE_ID, "keys": keys_pool()}, fh)
 
@@ -151,7 +151,7 @@ class FileFallback(unittest.TestCase):
         target["data"].pop("tenant_data")
         pair = C.pair_from_entry(target, config_dir=self.config_dir)
         self.assertTrue(pair.can_mint)
-        self.assertEqual(pair.uid, "800783")
+        self.assertEqual(pair.uid, "123456")
         self.assertIn("token file", pair.origin)
 
     def test_pair_from_files_directly(self) -> None:

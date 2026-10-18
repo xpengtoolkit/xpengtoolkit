@@ -87,10 +87,10 @@ class TestDelivery(unittest.TestCase):
         self.assertIn("unreachable", result["error"])
 
     def test_absent_entry_bootstraps(self):
-        bootstrap = mock.Mock(return_value=(True, "L1NNSGHA3SB800783"))
+        bootstrap = mock.Mock(return_value=(True, "L1NNSGHAXSB123456"))
         result = self._deliver("absent", _bootstrap_entry=bootstrap)
         self.assertTrue(result["ok"])
-        self.assertEqual(result["bootstrapped"], "L1NNSGHA3SB800783")
+        self.assertEqual(result["bootstrapped"], "L1NNSGHAXSB123456")
 
     def test_a_failed_bootstrap_is_retryable(self):
         bootstrap = mock.Mock(return_value=(False, "could not start the config flow: 502"))
