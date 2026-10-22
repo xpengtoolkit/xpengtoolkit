@@ -15,7 +15,7 @@ service_type 12 / cmd_type 1 / cmd_value 2, and it *vents*.
 So this pins three things:
   * the verified window command is the one sent, for both the buttons and the
     ``xpeng.vent_windows`` service;
-  * window closing refuses instead of publishing a charge-port command;
+  * window closing uses the recovered official app command, not a charge-port command;
   * a car with a manual flap can turn the charge-port controls off, and the
     buttons, the services and the strings all honour that one answer.
 """
@@ -67,21 +67,14 @@ class WindowCommands(unittest.TestCase):
         self.assertIn("_send, hass, 12, {\"cmd_type\": 1, \"cmd_value\": 2}", block)
         self.assertNotIn("cmd_type\": 3", block)
 
-    def test_closing_a_window_refuses_instead_of_publishing(self):
-        for source, label in ((BUTTON, "button"), (SERVICES, "service")):
-            with self.subTest(label):
-                self.assertIn(
-                    'translation_key="window_command_unverified"', source
-                )
-                # A refusal has to sit before any send, or it only refuses after
-                # the wrong payload has already gone out.
-                refusal = source.index('translation_key="window_command_unverified"')
-                close = source.rindex("close_windows", 0, refusal)
-                following_send = source.find("send_command", close)
-                self.assertTrue(
-                    following_send == -1 or refusal < following_send,
-                    "the window-close refusal must precede publication",
-                )
+    def test_window_close_uses_the_official_handler_not_the_charge_port(self):
+        block = _section(BUTTON, 'key="close_windows"', "XPengCommandButton(")
+        self.assertIn("service_type=12", block)
+        self.assertIn('{"cmd_type": 1, "cmd_value": 1}', block)
+        self.assertNotIn("service_type=4", block)
+        block = _section(SERVICES, "handle_close_windows", "handle_vent_windows")
+        self.assertIn('_send, hass, 12, {"cmd_type": 1, "cmd_value": 1}', block)
+        self.assertNotIn('"cmd_type": 3', block)
 
     def test_open_windows_is_unchanged(self):
         """The one command that already worked; it is what vent now reuses."""

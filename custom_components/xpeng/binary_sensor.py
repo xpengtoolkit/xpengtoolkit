@@ -25,6 +25,8 @@ from .const import (
 )
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
+from .entity_layout import include_legacy_entity
+from .command_policy import default_policy
 
 #: How much of the MQTT clientId the diagnostics show. The id is
 #: `<deviceId>:<...>:<userId>` and the deviceId is the identity this install
@@ -56,6 +58,12 @@ async def async_setup_entry(
         XPengBinarySensor(coordinator, description)
         for description in BINARY_SENSOR_DESCRIPTIONS
         if description is not plugged_in_description
+        and include_legacy_entity(
+            entry,
+            entry_data.get("command_policy") or default_policy(),
+            "binary_sensor",
+            description.key,
+        )
     ]
     # Not vehicle telemetry: dedicated classes, because their values come from
     # the refresh state / MQTT client rather than from the MQTT payload.

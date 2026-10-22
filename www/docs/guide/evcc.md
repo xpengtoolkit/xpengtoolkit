@@ -41,6 +41,12 @@ masked VIN tail, e.g. `123456`). Every entity above exists on a default install:
 | `climater` | `binary_sensor.xpeng_<vehicle>_climate` | preconditioning on/off |
 | `wakeup` | `button.xpeng_<vehicle>_wake_vehicle` | sends the car's wake/force-upload command |
 
+Compact mode retains every interface listed above, including the original climate
+binary sensor. evcc's `climater` requires on/off states; the native climate entity
+reports HVAC modes and cannot replace it. Existing unique IDs remain unchanged,
+so Home Assistant can recover a climate sensor previously removed by compact
+cleanup. Check the entity ID if its deleted-entry metadata has expired.
+
 Create the token under **Profile → Security → Long-lived access tokens**. A
 read-only token is enough for `soc`/`range`/`climater`; writing `limitsoc` or
 pressing `wakeup` needs a token that can call services (the default is fine).

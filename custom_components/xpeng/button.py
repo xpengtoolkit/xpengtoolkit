@@ -24,7 +24,9 @@ from .command_policy import (
 from .const import COMMAND_NOT_SENT_MESSAGE, DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
+from .entity_layout import include_legacy_entity
 from .mqtt_client import XPengMQTTClient
+from .vehicle_capabilities import from_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,23 +67,15 @@ async def async_setup_entry(
             msg_content={"cmd_type": 1, "cmd_value": 1},
         ),
         XPengCommandButton(
-            # Kept as an entity so its absence is not mistaken for a bug, but it
-            # does not publish: see async_press. The old payload for this button
-            # was the charge-port command (service_type 4, cmd_type 3, cmd_value
-            # 1) and never moved a window - measured on a P7+ (2026-10-22).
             coordinator, mqtt_client,
             key="close_windows",
             group=GROUP_SECURING,
             name="Close windows",
             icon="mdi:car-door",
-            service_type=4,
-            msg_content={"cmd_type": 3, "cmd_value": 1},
+            service_type=12,
+            msg_content={"cmd_type": 1, "cmd_value": 1},
         ),
         XPengCommandButton(
-            # The only window command verified to do anything is the one below
-            # (`open_windows` as well): it *vents* the windows. Measured on a
-            # P7+ (2026-10-22) - the previous vent payload here was the
-            # charge-port close command and did not touch the windows.
             coordinator, mqtt_client,
             key="vent_windows",
             group=GROUP_ACCESS,
@@ -201,12 +195,16 @@ async def async_setup_entry(
     # with nothing, and a button that looks like it worked is worse than no
     # button. The port state sensor is unaffected.
     charge_port_controls = controls_enabled(entry.options)
+    charge_port_controls = charge_port_controls and from_coordinator(coordinator).support("charge_port_control") is not False
     async_add_entities(
         [
             entity
             for entity in entities
             if entity._policy_group
             and policy.allows(entity._policy_group)
+            and include_legacy_entity(
+                entry, policy, "button", entity._attr_translation_key
+            )
             and (
                 charge_port_controls
                 or entity._attr_translation_key not in _CHARGE_PORT_BUTTON_KEYS
@@ -245,14 +243,6 @@ class XPengCommandButton(XPengEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         self._guard(self._policy_action)
-        if self._attr_translation_key == "close_windows":
-            # There is no verified window-close command. The payload this button
-            # used to send is the *charge-port* open command, so pressing it
-            # could only ever do the wrong thing; refuse loudly instead of
-            # publishing it (measured on a P7+, 2026-10-22).
-            raise HomeAssistantError(
-                translation_domain=DOMAIN, translation_key="window_command_unverified"
-            )
         sent = await self.hass.async_add_executor_job(
             self._mqtt_client.send_command,
             self._vin,

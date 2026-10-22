@@ -75,6 +75,8 @@ def command_response_message(code: object) -> str:
     """
     if code == 200:
         return "Command accepted"
+    if code == 10401:
+        return "Charging could not be started (code 10401)"
     if code == 8:
         return "Command not supported by this vehicle (code 8)"
     if code is None:

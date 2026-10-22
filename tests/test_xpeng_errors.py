@@ -104,6 +104,12 @@ class TestIsTokenExpiredResponse(unittest.TestCase):
         self.assertFalse(errors.is_token_expired_response({"code": "12010101"}))
 
 
+class TestChargingFeedback(unittest.TestCase):
+    def test_10401_is_start_failure_not_hardware_unsupported(self):
+        self.assertEqual(errors.command_response_message(10401),
+                         "Charging could not be started (code 10401)")
+
+
 class TestLoginExpiredError(unittest.TestCase):
     def test_carries_the_code_and_message(self):
         err = errors.LoginExpiredError(12010101, "Login status expired")

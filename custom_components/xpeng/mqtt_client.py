@@ -895,6 +895,9 @@ class XPengMQTTClient:
 
     def _resolve_pending(self, data: dict[str, Any], stype: Any) -> None:
         """Wake any send_command_wait() waiter awaiting this inbound message."""
+        # Notifications and outbound command echoes are not acknowledgements.
+        if data.get("msg_type") != 1:
+            return
         with self._pending_lock:
             if not self._pending:
                 return
@@ -912,6 +915,8 @@ class XPengMQTTClient:
             if key is None:
                 return
             entry = self._pending[key]
+            if entry["event"].is_set():
+                return  # Never overwrite the first response while its waiter wakes.
             entry["result"] = data
             entry["event"].set()
 

@@ -40,6 +40,7 @@ from .command_policy import (
     PRESET_SAFE,
     SELECTABLE_PRESETS,
 )
+from .entity_layout import CONF_LEGACY_ENTITIES, legacy_entities_enabled
 from .xpeng_api import resolve_cert_dir
 from .const import (
     AUTH_METHOD_EMAIL,
@@ -574,7 +575,7 @@ def _permission_options() -> list[dict[str, str]]:
 class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for XPENG."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -1628,16 +1629,22 @@ class XPengOptionsFlow(OptionsFlow):
                 if mode == PRESET_CUSTOM:
                     # Keep what was just submitted and ask for the matrix; the
                     # entry is created by async_step_groups, not here.
-                    self._pending_options = user_input
+                    self._pending_options = {**self.config_entry.options, **user_input}
                     return await self.async_step_groups()
                 policy = CommandPolicy.from_preset(
                     mode,
-                    allow_wake=bool(user_input.get(CONF_ALLOW_WAKE, True)),
+                    allow_wake=bool(
+                        user_input.get(
+                            CONF_ALLOW_WAKE,
+                            self.config_entry.options.get(CONF_ALLOW_WAKE, True),
+                        )
+                    ),
                 )
                 # The group keys are written from the preset, never typed by
                 # the user, so the stored policy and the preset can never drift.
                 return self.async_create_entry(
-                    title="", data={**user_input, **policy.to_options()}
+                    title="",
+                    data={**self.config_entry.options, **user_input, **policy.to_options()},
                 )
 
         # On a failed submit, re-render what the user typed so the cert dir can
@@ -1645,6 +1652,7 @@ class XPengOptionsFlow(OptionsFlow):
         current = {**self.config_entry.options, **(user_input or {})}
 
         current_policy = CommandPolicy.from_options(current)
+        current.setdefault(CONF_LEGACY_ENTITIES, legacy_entities_enabled(self.config_entry))
 
         return self.async_show_form(
             step_id="init",
@@ -1660,6 +1668,9 @@ class XPengOptionsFlow(OptionsFlow):
                     ),
                     vol.Optional(
                         CONF_ALLOW_WAKE, default=current_policy.allow_wake
+                    ): bool,
+                    vol.Optional(
+                        CONF_LEGACY_ENTITIES, default=current[CONF_LEGACY_ENTITIES]
                     ): bool,
                     vol.Optional(
                         CONF_CHARGE_PORT_CONTROLS,

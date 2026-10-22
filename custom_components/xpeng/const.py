@@ -232,7 +232,7 @@ from .charge_port import (
 
 
 # Platforms
-PLATFORMS: Final = ["sensor", "binary_sensor", "device_tracker", "button", "switch", "number", "image", "climate", "lock", "select", "calendar"]
+PLATFORMS: Final = ["sensor", "binary_sensor", "device_tracker", "button", "switch", "number", "image", "climate", "lock", "select", "calendar", "cover"]
 
 
 # Shift state mapping

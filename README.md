@@ -249,6 +249,21 @@ a group that is Disabled is not created at all, and one that is Read only keeps 
 state but refuses its commands. A new install starts at **Safe Plus**, so OTA, the V2L
 outlet and unlocking are absent until you widen it.
 
+### Consolidated controls
+
+New entries use native covers for trunk/windows/charge port and a charging switch.
+Front defrost joins the climate controller. Existing entries keep
+their legacy entities until **Keep legacy buttons and duplicate sensors** is
+turned off. evcc's original climate binary sensor and other typed interfaces
+remain available in compact mode. See [controls and migration](docs/CONTROLS.md).
+
+### Climate protocol and feedback
+
+Climate power and target temperature use the official app's capability-selected
+commands. Vehicle replies update measured climate state; refusals and timeouts
+are reported as errors. The former fan-speed mapping is withheld because it
+uses the integer-temperature command. See [climate command corrections](docs/CLIMATE_COMMANDS.md).
+
 ### Notifications
 
 XPENG's notifications do **not** arrive over MQTT and are not pushed to this
@@ -928,14 +943,11 @@ battery and is only used to pull a fresh full state; with it off the integration
 strictly passive and sends queries only, at the price of staler sensors. The internal
 watchdog honours it too, degrading to a passive query instead of a force-upload.
 
-**Window and charge-port commands follow what has actually been verified.**
-`Open windows` and `Vent windows` both send the one window command observed to work,
-which *vents* the windows; `Close windows` refuses with a clear error instead of
-publishing its old payload, because that payload was the charge-port *open* command
-and never moved a window (measured on a P7+). `Close windows` requires the XPENG app
-or the vehicle until a verified close command is captured. For a car with a manual
-charge flap, turn off **Motorized charge-port controls**: the open/close charge-port
-buttons and services are then not offered, while the port state sensor remains.
+**Window and charge-port controls are separate.** Window opening vents; closing
+uses the official app's service-12 command. A P7+ owner physically confirmed both
+actions on 22 October 2026. Full opening and arbitrary positions are unverified.
+Manual charge flaps retain state without motorized commands when identified by
+model configuration or when **Motorized charge-port controls** is off.
 
 ### What this does *not* protect against
 

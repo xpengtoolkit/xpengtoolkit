@@ -105,7 +105,7 @@ service: xpeng.defrost_on
 
 | Service | Effect |
 | --- | --- |
-| `close_windows` | **Not available.** Refuses with a clear error: the payload it used to send was the charge-port *open* command and never moved a window. No verified close command exists yet |
+| `close_windows` | Official app close command (service 12, cmd_type 1, value 1). Physically confirmed on a P7+ (22 October 2026) |
 | `vent_windows` | Vents all windows. This is the only window command verified to work, and the name is the accurate one |
 | `open_windows` | Also sends the verified command above, which **vents** — full opening was not observed |
 | `open_trunk` | Opens the vehicle trunk |
@@ -117,11 +117,10 @@ None of these takes a field. They are the same commands the corresponding
 `button` and `lock` entities issue; `lock` is worth preferring for the door lock,
 because it reports the state back.
 
-Measured on a P7+ (2026-10-22): the old `close_windows` and `vent_windows` payloads
-were identical to the charge-port open/close commands. `open_windows` sent
-`service_type 12, cmd_type 1, cmd_value 2`, which vents the windows, and both
-remaining window services now send exactly that. Closing windows needs the XPENG app
-or the vehicle until a verified command is captured — no guessed command is sent.
+Window opening/ventilation uses service 12, cmd_type 1, value 2. Closing uses
+value 1 from the official Android handler. The old charge-port payloads are not
+window commands. A P7+ owner physically confirmed ventilation and closing on 22 October 2026;
+full opening has not been verified.
 
 ```yaml
 service: xpeng.vent_windows

@@ -140,7 +140,7 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 | `number.xpeng_<vehicle>_trunk_power_timer` | number (control) | min | Outlet auto-off, 0–1440 in steps of 30; setting 0 switches the outlet off |
 | `button.xpeng_<vehicle>_open_trunk` | button | – | Open tailgate |
 | `button.xpeng_<vehicle>_close_trunk` | button | – | Close tailgate |
-| `button.xpeng_<vehicle>_close_windows` | button | – | **Present but refuses** with a clear error: its old payload was the charge-port open command, and no verified window-close command exists. Close from the XPENG app or the vehicle |
+| `button.xpeng_<vehicle>_close_windows` | button | – | Uses the official app close command; physically confirmed on a P7+ (22 October 2026) |
 | `button.xpeng_<vehicle>_vent_windows` | button | – | Vents all windows — the only window command verified to work (P7+, 2026-10-22) |
 | `button.xpeng_<vehicle>_open_windows` | button | – | Sends the same verified command, which **vents**; full opening was not observed |
 
@@ -170,7 +170,7 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 | `binary_sensor.xpeng_<vehicle>_defrost` | binary_sensor | – | ON when `hvac_defrost == 1` |
 | `binary_sensor.xpeng_<vehicle>_mirror_heating` | binary_sensor | – | ON when `hvac_mirror_heat_mode == 1` |
 | `switch.xpeng_<vehicle>_front_defrost` | switch (control) | – | Front defrost toggle |
-| `number.xpeng_<vehicle>_fan_speed` | number (control) | – | Air volume 1–8. Level 0 is rejected by the car — turn the climate off instead |
+| `number.xpeng_<vehicle>_fan_speed` | number (control) | – | Legacy entity; control withheld because the old payload sets temperature, not fan speed |
 | `sensor.xpeng_<vehicle>_driver_seat_heating` | sensor | – | Raw level 0–3 |
 | `sensor.xpeng_<vehicle>_passenger_seat_heating` | sensor | – | Raw level 0–3 |
 | `sensor.xpeng_<vehicle>_left_rear_seat_heating` | sensor | – | Raw level 0–3 |
@@ -294,7 +294,7 @@ switch, the trunk-power outlet, unlocking, the trunk and the windows.
 | `switch.xpeng_<vehicle>_parking_lights` | switch | on / off | Parking lights (no state feedback) |
 | `switch.xpeng_<vehicle>_ota_auto_upgrade` | switch | on / off | REST auto-upgrade setting |
 | `number.xpeng_<vehicle>_charge_limit` | number | 50–100 %, step 5 | Charge target |
-| `number.xpeng_<vehicle>_fan_speed` | number | 1–8 | HVAC air volume |
+| `number.xpeng_<vehicle>_fan_speed` | number | 1–8 | Legacy control withheld; no verified remote fan command |
 | `number.xpeng_<vehicle>_sentinel_sensitivity` | number | 1–3 | Sentinel sensitivity (also enables video) |
 | `number.xpeng_<vehicle>_trunk_power_timer` | number | 0–1440 min, step 30 | Outlet auto-off; 0 switches the outlet off |
 | `select.xpeng_<vehicle>_driver_seat_heating` | select | Off / Heat 1 / Heat 2 / Heat 3 | Driver seat heat (`cmd_type` 1) |

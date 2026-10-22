@@ -185,20 +185,15 @@ well, that is the separate case below.
 
 ## Window closing and charge-port controls {#window-closing-and-charge-port}
 
-Two controls are deliberately limited, because their old commands were never verified
-to do what their names said:
+The window open/vent action moves the windows to the ventilation position.
+Closing uses the official app's service-12 command. A P7+ owner physically
+confirmed ventilation and closing on 22 October 2026. Neither full opening nor arbitrary positions are advertised.
 
-* **Close windows refuses** with *"Window closing is not available: the command this
-  integration had targeted the charge port rather than the windows."* The payload it
-  used to publish was the charge-port *open* command; a P7+ owner measured that it
-  never moved a window (2026-10-22). There is no verified window-close command yet,
-  so close the windows from the XPENG app or the vehicle. `Open windows` and
-  `Vent windows` both send the one command that was observed to work, which **vents**.
-* **Charge-port buttons and services are absent/refused** when **Motorized charge-port
-  controls** is off in Configure. That is the setting for a car with a manual flap:
-  the commands cannot do anything, so a button that appears to have worked is worse
-  than no button. Turn the option back on for a motorized flap; the state sensor
-  reports either way.
+Charge-port motor actions are unavailable when **Motorized charge-port controls**
+is off or model configuration identifies a manual flap. The port's measured
+state remains available. Charging start/stop is a different operation: it needs
+a connected cable and a ready station. Vehicle code 10401 is a charging-start
+failure, not evidence that the charge flap is unsupported.
 
 ## Getting back to a working login
 

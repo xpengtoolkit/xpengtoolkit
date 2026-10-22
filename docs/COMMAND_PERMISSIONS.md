@@ -59,13 +59,11 @@ advisory.
 The service column above is generated from `command_policy.SERVICE_GROUPS`, and
 `tests/test_command_policy.py` fails if this file and the code disagree.
 
-**Windows are limited to the command that has been verified.** `open_windows` and
-`vent_windows` both send `service_type 12, cmd_type 1, cmd_value 2`, which is the
-command an owner measured to *vent* the windows on a P7+ (2026-10-22); the previous
-close/vent payloads were the charge-port commands and moved nothing. `close_windows`
-is still created (so its absence is not mistaken for a bug) but refuses with a clear
-error instead of publishing that payload. Closing windows needs the XPENG app or the
-vehicle until a verified command is captured; no guessed command is sent.
+**Windows keep separate opening and securing permissions.** `open_windows` and
+`vent_windows` use service 12, cmd_type 1, cmd_value 2 (ventilation). The close
+action uses the official Android handler's service 12, cmd_type 1, cmd_value 1.
+A P7+ owner physically confirmed ventilation and closing on 22 October 2026. Full opening is unverified.
+The old charge-port payload is never used for a window action.
 
 **Charge-port controls are an owner's answer, not a permission.** A car with a manual
 flap cannot act on `open_charge_port` / `close_charge_port`; turning off the

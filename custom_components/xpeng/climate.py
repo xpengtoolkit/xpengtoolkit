@@ -1,7 +1,8 @@
 """Climate platform for the XPENG integration."""
+
 from __future__ import annotations
 
-import time
+import math
 from typing import Any
 
 from homeassistant.components.climate import (
@@ -11,11 +12,19 @@ from homeassistant.components.climate import (
     HVACAction,
     HVACMode,
 )
+from homeassistant.components.climate.const import PRESET_NONE
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .climate_commands import (
+    power_payload,
+    send_climate,
+    temperature_payload,
+    temperature_step,
+)
 from .command_policy import GROUP_COMFORT, default_policy
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
@@ -38,7 +47,7 @@ async def async_setup_entry(
 
 
 class XPengClimate(XPengEntity, ClimateEntity):
-    """XPENG cabin climate control."""
+    """Measured cabin climate with capability-selected, confirmed commands."""
 
     _attr_name = "Climate"
     _attr_icon = "mdi:air-conditioner"
@@ -48,85 +57,68 @@ class XPengClimate(XPengEntity, ClimateEntity):
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TURN_OFF
+        | ClimateEntityFeature.PRESET_MODE
     )
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 16.0
     _attr_max_temp = 32.0
-    _attr_target_temperature_step = 0.5
+    _attr_preset_modes = [PRESET_NONE, "defrost"]
 
     def __init__(
         self, coordinator: XPengDataCoordinator, mqtt_client: XPengMQTTClient
     ) -> None:
-        """Initialize the climate entity."""
         super().__init__(coordinator)
         self._mqtt_client = mqtt_client
         self._attr_unique_id = f"xpeng_{self._vin}_cabin_climate"
-        self._optimistic_hvac_mode: HVACMode | None = None
-        self._optimistic_target_temp: float | None = None
-        self._optimistic_until: float = 0
-
-    def _clear_expired_optimistic(self) -> None:
-        """Clear optimistic state after timeout."""
-        if time.monotonic() >= self._optimistic_until:
-            self._optimistic_hvac_mode = None
-            self._optimistic_target_temp = None
 
     def _get_hvac_value(self, key: str) -> Any:
         """Get a value from the HVAC data dict."""
         if not self.coordinator.data:
             return None
         return (
-            self.coordinator.data
-            .get("msg_content", {})
+            self.coordinator.data.get("msg_content", {})
             .get("instant", {})
             .get("hvac", {})
             .get(key)
         )
 
-    @property
-    def current_temperature(self) -> float | None:
-        """Return current cabin temperature."""
-        val = self._get_hvac_value("hvac_inner_temp_float")
-        if val is None:
+    def _temperature(self, key: str) -> float | None:
+        value = self._get_hvac_value(key)
+        if isinstance(value, bool):
             return None
         try:
-            return float(val)
+            value = float(value)
+            return value if math.isfinite(value) else None
         except (TypeError, ValueError):
             return None
+
+    @property
+    def current_temperature(self) -> float | None:
+        value = self._temperature("hvac_inner_temp_float")
+        return value if value is not None else self._temperature("hvac_inner_temp")
 
     @property
     def target_temperature(self) -> float | None:
-        """Return target cabin temperature."""
-        self._clear_expired_optimistic()
-        if self._optimistic_target_temp is not None:
-            return self._optimistic_target_temp
-        val = self._get_hvac_value("hvac_temp_float")
-        if val is None:
-            return None
-        try:
-            return float(val)
-        except (TypeError, ValueError):
-            return None
+        value = self._temperature("hvac_temp_float")
+        return value if value is not None else self._temperature("hvac_temp")
 
     @property
-    def hvac_mode(self) -> HVACMode:
-        """Return current HVAC mode."""
-        self._clear_expired_optimistic()
-        if self._optimistic_hvac_mode is not None:
-            return self._optimistic_hvac_mode
-        return (
-            HVACMode.HEAT_COOL
-            if self._get_hvac_value("hvac_on") == 1
-            else HVACMode.OFF
+    def target_temperature_step(self) -> float:
+        return temperature_step(self.coordinator)
+
+    @property
+    def hvac_mode(self) -> HVACMode | None:
+        return {0: HVACMode.OFF, 1: HVACMode.HEAT_COOL}.get(
+            self._get_hvac_value("hvac_on")
         )
 
     @property
     def hvac_action(self) -> HVACAction | None:
-        """Return current HVAC action based on temperatures."""
+        if self.hvac_mode is None:
+            return None
         if self.hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
-        current = self.current_temperature
-        target = self.target_temperature
+        current, target = self.current_temperature, self.target_temperature
         if current is None or target is None:
             return HVACAction.IDLE
         if current < target - 0.3:
@@ -145,57 +137,79 @@ class XPengClimate(XPengEntity, ClimateEntity):
         card - which is exactly what the mode is for. The switch, number and
         select platforms have no such API; they guard the command instead.
         """
-        if self._policy.read_only(GROUP_COMFORT):
+        if not self._policy.allows(GROUP_COMFORT):
             return ClimateEntityFeature(0)
         return self._attr_supported_features
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        """Set HVAC mode."""
         if hvac_mode == HVACMode.OFF:
             await self.async_turn_off()
         elif hvac_mode == HVACMode.HEAT_COOL:
             await self.async_turn_on()
+        else:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_climate_option",
+                translation_placeholders={"option": str(hvac_mode)},
+            )
 
     async def async_turn_on(self) -> None:
+        """Use the app's power command without inventing a temperature change."""
         self._guard()
-        """Turn climate on at current or default temperature."""
-        target = self.target_temperature or 22.0
-        self._optimistic_hvac_mode = HVACMode.HEAT_COOL
-        self._optimistic_target_temp = target
-        self._optimistic_until = time.monotonic() + 30
-        self.async_write_ha_state()
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 3,
-            {"cmd_type": 6, "cmd_value": target, "time": 15},
+        await send_climate(
+            self.hass,
+            self._mqtt_client,
+            self.coordinator,
+            power_payload(self.coordinator, True),
         )
 
     async def async_turn_off(self) -> None:
         self._guard()
-        """Turn climate off."""
-        self._optimistic_hvac_mode = HVACMode.OFF
-        self._optimistic_target_temp = None
-        self._optimistic_until = time.monotonic() + 30
-        self.async_write_ha_state()
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 3,
-            {"cmd_type": 1, "cmd_value": 0, "time": 0},
+        await send_climate(
+            self.hass,
+            self._mqtt_client,
+            self.coordinator,
+            power_payload(self.coordinator, False),
         )
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
-        """Set target temperature (also turns on if off)."""
+        """Set the target, independently of whether the cabin A/C is on."""
         self._guard()
-        temperature = kwargs.get(ATTR_TEMPERATURE)
-        if temperature is None:
+        value = kwargs.get(ATTR_TEMPERATURE)
+        if value is None:
             return
-        target = min(max(float(temperature), self.min_temp), self.max_temp)
-        self._optimistic_hvac_mode = HVACMode.HEAT_COOL
-        self._optimistic_target_temp = target
-        self._optimistic_until = time.monotonic() + 30
-        self.async_write_ha_state()
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 3,
-            {"cmd_type": 6, "cmd_value": target, "time": 15},
+        try:
+            content = temperature_payload(self.coordinator, value)
+        except (TypeError, ValueError, OverflowError):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_climate_option",
+                translation_placeholders={"option": str(value)},
+            ) from None
+        await send_climate(self.hass, self._mqtt_client, self.coordinator, content)
+
+    async def async_set_fan_mode(self, fan_mode: str) -> None:
+        self._guard()
+        # The old command 2 sets integer temperature. Do not send it as fan speed.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN, translation_key="fan_speed_unverified"
+        )
+
+    @property
+    def preset_mode(self) -> str | None:
+        return {0: PRESET_NONE, 1: "defrost"}.get(self._get_hvac_value("hvac_defrost"))
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        self._guard()
+        if preset_mode not in self._attr_preset_modes:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_climate_option",
+                translation_placeholders={"option": str(preset_mode)},
+            )
+        await send_climate(
+            self.hass,
+            self._mqtt_client,
+            self.coordinator,
+            {"cmd_type": 4, "cmd_value": int(preset_mode == "defrost")},
         )

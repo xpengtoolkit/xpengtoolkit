@@ -545,6 +545,19 @@ def _warn_on_device_id_mismatch(
                 tenant_device_id,
             )
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Keep legacy IDs working for existing users until they opt into compact mode."""
+    from .entity_layout import CONF_LEGACY_ENTITIES
+
+    if entry.version > 2:
+        return False
+    if entry.version < 2:
+        options = dict(entry.options)
+        options.setdefault(CONF_LEGACY_ENTITIES, True)
+        hass.config_entries.async_update_entry(entry, options=options, version=2)
+    return True
+
+
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register integration-level services (once, not per entry).
 
@@ -1530,6 +1543,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         )
                         _LOGGER.info("Persisted refreshed login tokens to config entry")
                     coordinator.set_rest_data(rest_data)
+                    from .capability_registry import sync_capability_entities
+
+                    sync_capability_entities(hass, entry, coordinator)
                     _LOGGER.info(
                         "REST poll complete: keys=%s", list(rest_data.keys())
                     )
@@ -1945,8 +1961,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         )
 
+    # Compact mode is integration-level: seed renamed controller IDs and retire
+    # their old duplicate entries before platforms register the new layout.
+    from .entity_layout import prepare_compact_registry
+    prepare_compact_registry(hass, entry, coordinator.vin, coordinator.command_policy)
+
     # 8. Forward platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    from .capability_registry import sync_capability_entities
+
+    sync_capability_entities(hass, entry, coordinator)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     # 9. Register vehicle command services
@@ -2113,6 +2137,7 @@ def _fetch_rest_data_sync(
         get_energy_report, get_weather,
         refresh_login_tokens,
         get_remote_capabilities,
+        get_authenticated_data,
         get_ota_upgrade_info, get_auto_upgrade_status, get_ota_version,
         get_beta_popup, get_vehicle_extension,
         get_left_comfort_preon_time,
@@ -2180,6 +2205,11 @@ def _fetch_rest_data_sync(
                 _LOGGER.warning("Token refresh failed — triggering reauth")
                 return {"_token_expired": True}
         def _extract_from_vehicle(v: dict) -> None:
+            from .vehicle_capabilities import HARDWARE_KEYS, normalize_flags
+
+            hardware = normalize_flags(v.get("function"), HARDWARE_KEYS)
+            if hardware:
+                result["vehicle_hardware"] = hardware
             vtc = v.get("vehicleTypeCode", "")
             if vtc:
                 result["vehicle_type_code"] = vtc
@@ -2318,6 +2348,28 @@ def _fetch_rest_data_sync(
             result["remote_capabilities"] = caps
     except Exception as err:
         _LOGGER.debug("get_remote_capabilities failed: %s", err)
+
+    # The official app overlays model configuration from this read-only API.
+    # Retain only explicit feature booleans; absence is unknown, not False.
+    if result.get("vehicle_type_code"):
+        try:
+            from .vehicle_capabilities import LOCAL_KEYS, normalize_flags
+
+            import json as _json
+
+            body = _json.dumps({
+                "biz": "app", "module": "onlineVehicle", "vin": vin,
+                "vehicleTypeCode": result["vehicle_type_code"],
+                "vehicleTypeName": result.get("vehicle_type_name", ""),
+            }, separators=(",", ":"))
+            local = get_authenticated_data(
+                None, tenant, tokens, "/ocm/app/config/get", "POST", body,
+            )
+            local = normalize_flags(local, LOCAL_KEYS)
+            if local:
+                result["vehicle_local_config"] = local
+        except Exception as err:
+            _LOGGER.debug("Vehicle model configuration unavailable: %s", type(err).__name__)
 
     # 8. OTA upgrade info (available updates)
     try:

@@ -14,6 +14,7 @@ from .command_policy import (
     default_policy,
 )
 from .const import DOMAIN
+from .vehicle_capabilities import ENTITY_FEATURES, from_coordinator
 from .coordinator import XPengDataCoordinator
 
 
@@ -37,6 +38,16 @@ class XPengEntity(CoordinatorEntity[XPengDataCoordinator]):
         """Initialize the entity."""
         super().__init__(coordinator)
         self._vin = coordinator.vin
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        prefix = f"xpeng_{self._vin}_"
+        key = (self.unique_id or "").removeprefix(prefix)
+        feature = ENTITY_FEATURES.get(key)
+        supported = from_coordinator(self.coordinator).support(feature) if feature else None
+        if supported is not None:
+            return supported
+        return getattr(self, "_attr_entity_registry_enabled_default", True)
 
     async def async_update(self) -> None:
         """No-op: there is nothing to fetch, and asking would take everything down.

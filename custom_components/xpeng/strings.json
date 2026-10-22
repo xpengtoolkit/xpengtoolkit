@@ -168,6 +168,7 @@
           "teslamate_provider_enabled": "Enable the TeslaMate API provider",
           "teslamate_provider_port": "TeslaMate provider port",
           "teslamate_provider_token": "TeslaMate provider token",
+          "legacy_entities": "Keep legacy buttons and duplicate sensors",
           "charge_port_controls": "Motorized charge-port controls"
         },
         "data_description": {
@@ -192,7 +193,8 @@
           "teslamate_provider_enabled": "Run a Tesla-compatible API on the port below so TeslaMate can log this car as if it were a Tesla. Read-only: no command routes are served, so this cannot move or unlock the car. Off by default.",
           "teslamate_provider_port": "The port the provider listens on, reachable from the TeslaMate container or host. Must not be 8123 (Home Assistant itself). 8200 is the default so it does not collide with TeslaMate's own web UI on 4000.",
           "teslamate_provider_token": "Shared secret. Copy this into TeslaMate's TOKEN environment variable; TeslaMate sends it as a bearer token on every request and the provider rejects anything else. Generated on first view - change it and TeslaMate must be re-signed-in.",
-          "charge_port_controls": "Turn this off for a car with a manual charge flap: the open/close charge-port buttons and services are then not offered, because the car cannot act on them. The charge-port state sensor is unchanged. Reported against a P7+ (manual flap); other cars answer the commands."
+          "legacy_entities": "Turn off for unified covers and charging switch. Retires old paired buttons and duplicate sensors; update automations first. Turn on to restore legacy entities.",
+          "charge_port_controls": "Turn off for a manual charge flap. The charge-port cover still reports state, without open/close actions."
         }
       },
       "groups": {
@@ -594,6 +596,9 @@
       },
       "auto_upgrade_switch": {
         "name": "OTA auto-upgrade"
+      },
+      "charging": {
+        "name": "Charging"
       }
     },
     "number": {
@@ -649,6 +654,17 @@
     "image": {
       "vehicle_picture": {
         "name": "Vehicle picture"
+      }
+    },
+    "cover": {
+      "trunk": {
+        "name": "Trunk"
+      },
+      "windows": {
+        "name": "Windows"
+      },
+      "charge_port": {
+        "name": "Charge port"
       }
     }
   },
@@ -714,6 +730,24 @@
     },
     "charge_port_control_disabled": {
       "message": "Remote charge-port controls are disabled for this vehicle. Turn on 'Motorized charge-port controls' in the integration options if the vehicle supports them."
+    },
+    "invalid_climate_option": {
+      "message": "Unsupported climate setting: {option}."
+    },
+    "vehicle_command_rejected": {
+      "message": "The vehicle rejected the command (code {code}). Check the vehicle state and command feedback for details."
+    },
+    "command_not_confirmed": {
+      "message": "The vehicle did not confirm the command. Check connectivity and the current vehicle state before trying again."
+    },
+    "command_response_invalid": {
+      "message": "The vehicle returned an unexpected command response. Check command feedback for details."
+    },
+    "charging_start_rejected": {
+      "message": "Charging could not be started (vehicle code {code}). Check that the cable is connected and the charging station is ready."
+    },
+    "fan_speed_unverified": {
+      "message": "Remote fan-speed control has not been verified for this vehicle."
     }
   }
 }

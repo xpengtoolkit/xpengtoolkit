@@ -13,6 +13,7 @@ from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
+from .climate_commands import power_payload, send_climate, temperature_payload
 from .charge_port import controls_enabled
 from .command_gate import async_guard_service
 from .command_policy import default_policy, service_group
@@ -218,17 +219,13 @@ def _get_entry_data(hass: HomeAssistant) -> dict[str, Any] | None:
 
 
 def _charge_port_controls_enabled(hass: HomeAssistant) -> bool:
-    """Whether this entry expects the charge-port commands to do anything.
-
-    A manual flap answers them with an error or with nothing, and no field says
-    which kind of flap a car has, so the owner records it as the
-    ``charge_port_controls`` option (see charge_port.controls_enabled). The
-    services check it for the same reason the buttons are not created: a call
-    that silently cannot work is worse than one that says so.
-    """
+    """Respect the owner option and known model support; unknown stays allowed."""
     entry_data = _get_entry_data(hass) or {}
     entry = entry_data.get("entry")
-    return controls_enabled(getattr(entry, "options", None) or {})
+    from .vehicle_capabilities import from_coordinator
+
+    return (controls_enabled(getattr(entry, "options", None) or {})
+            and from_coordinator(entry_data.get("coordinator")).support("charge_port_control") is not False)
 
 
 def _build_snapshot(coordinator: Any, reason: str) -> dict[str, Any]:
@@ -309,23 +306,33 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     """Register XPENG vehicle command services."""
 
     async def handle_climate_on(call: ServiceCall) -> None:
-        temp = call.data.get("temperature", 22.0)
-        duration = call.data.get("duration", 15)
-        await hass.async_add_executor_job(
-            _send, hass, 3, {"cmd_type": 6, "cmd_value": temp, "time": duration}
+        data = _get_entry_data(hass)
+        if not data:
+            raise HomeAssistantError("No live XPENG config entry")
+        c, client = data["coordinator"], data["mqtt_client"]
+        try:
+            target = temperature_payload(
+                c, call.data.get("temperature", 22.0), call.data.get("duration", 15)
+            )
+        except (TypeError, ValueError, OverflowError):
+            raise HomeAssistantError("Invalid climate target temperature") from None
+        await send_climate(hass, client, c, target)
+        await send_climate(
+            hass, client, c, power_payload(c, True, call.data.get("duration", 15))
         )
 
     async def handle_climate_off(call: ServiceCall) -> None:
-        await hass.async_add_executor_job(
-            _send, hass, 3, {"cmd_type": 1, "cmd_value": 0, "time": 0}
+        data = _get_entry_data(hass)
+        if not data:
+            raise HomeAssistantError("No live XPENG config entry")
+        await send_climate(
+            hass, data["mqtt_client"], data["coordinator"],
+            power_payload(data["coordinator"], False),
         )
 
     async def handle_close_windows(call: ServiceCall) -> None:
-        # The payload this service used to publish is the charge-port *open*
-        # command (service_type 4, cmd_type 3, cmd_value 1) and never moved a
-        # window - measured on a P7+ (2026-10-22). Refuse rather than send it.
-        raise HomeAssistantError(
-            translation_domain=DOMAIN, translation_key="window_command_unverified"
+        await hass.async_add_executor_job(
+            _send, hass, 12, {"cmd_type": 1, "cmd_value": 1}
         )
 
     async def handle_vent_windows(call: ServiceCall) -> None:

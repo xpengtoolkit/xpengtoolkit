@@ -25,6 +25,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+# Cache the stdlib extension before component select.py can shadow it.
+import select  # noqa: F401
 import sys
 import types
 import unittest

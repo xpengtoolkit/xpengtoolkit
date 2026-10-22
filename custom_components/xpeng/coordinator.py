@@ -73,8 +73,10 @@ SEAT_SERVICE_TYPE = 30
 #: response is a status report, not an echo of the request, so its keys land in the same
 #: place the sensors read.
 COMMAND_STATE_SECTIONS = {
+    3: "hvac",  # Climate replies carry the measured HVAC snapshot, not an echo.
     CHARGE_SERVICE_TYPE: "charge",
     SEAT_SERVICE_TYPE: "seat",
+    12: "window",
 }
 
 #: How often the MQTT listener may fire its event and refresh entities, in seconds.
@@ -192,6 +194,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.weather: dict[str, Any] | None = None
         # REST supplementary state
         self.remote_capabilities: Any = None
+        self.vehicle_hardware: dict[str, bool] = {}
+        self.vehicle_local_config: dict[str, bool] = {}
         self.vehicle_extension: dict[str, Any] | None = None
         # OTA data
         self.ota_upgrade_info: dict[str, Any] | None = None
@@ -681,6 +685,11 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.weather = data["weather"]
         if "remote_capabilities" in data:
             self.remote_capabilities = data["remote_capabilities"]
+        for key in ("vehicle_hardware", "vehicle_local_config"):
+            values = data.get(key)
+            if isinstance(values, dict) and values:
+                # Partial REST results must not erase previously known flags.
+                setattr(self, key, {**getattr(self, key, {}), **values})
         if "vehicle_extension" in data:
             self.vehicle_extension = data["vehicle_extension"]
         if "widget_state" in data:
@@ -1099,7 +1108,7 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ``msg_content`` keys are the ones an ``instant`` section already holds, which is
         what makes the acknowledgement usable as the confirmation.
 
-        Two subsystems do this today, both measured on a live car:
+        The charge, seat and window subsystems report measured fields:
 
         * ``service_type 4`` (charge) answers ``set_charge_limit`` with
           ``{"charge_status": 15, "slow_charge_port_status": 2, "fast_charge_port_status": 2,

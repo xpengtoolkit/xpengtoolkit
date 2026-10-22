@@ -74,7 +74,7 @@ def _load_sensor_module():
 
     pkg = "custom_components.xpeng"
     _mod("custom_components")
-    _mod(pkg)
+    _mod(pkg, __path__=[str(COMPONENT)])
     _mod(f"{pkg}.const", DOMAIN="xpeng", SENSOR_DESCRIPTIONS=(),
          XPengSensorEntityDescription=_Any)
     _mod(f"{pkg}.coordinator", XPengDataCoordinator=_Any)

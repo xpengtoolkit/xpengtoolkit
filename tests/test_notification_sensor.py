@@ -64,14 +64,15 @@ def _load_sensor_module():
     _mod("homeassistant.const", EntityCategory=_EntityCategory,
          UnitOfTemperature=_Auto(), UnitOfTime=_Auto())
     _mod("homeassistant.core", HomeAssistant=_Any, callback=lambda fn: fn)
-    _mod("homeassistant.helpers")
+    helpers = _mod("homeassistant.helpers")
+    helpers.entity_registry = _mod("homeassistant.helpers.entity_registry")
     _mod("homeassistant.helpers.entity_platform", AddEntitiesCallback=_Any)
     _mod("homeassistant.helpers.event", async_track_time_change=_Any,
          async_track_time_interval=_Any)
 
     pkg = "custom_components.xpeng"
     _mod("custom_components")
-    _mod(pkg)
+    _mod(pkg, __path__=[str(_component.component_dir())])
     _mod(f"{pkg}.const", DOMAIN="xpeng", SENSOR_DESCRIPTIONS=(),
          XPengSensorEntityDescription=_Any)
     _mod(f"{pkg}.coordinator", XPengDataCoordinator=_Any)

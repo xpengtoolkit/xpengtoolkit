@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .command_policy import (
     GROUP_ACCESS,
     GROUP_COMFORT,
+    GROUP_CHARGING,
     GROUP_FIRMWARE,
     GROUP_LIGHTS,
     GROUP_POWER,
@@ -21,8 +22,11 @@ from .command_policy import (
     default_policy,
 )
 from .const import DOMAIN
+from .command_execution import async_send_confirmed
+from .charge_port import charge_cable_state, charging_state_label
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
+from .entity_layout import include_legacy_entity
 from .mqtt_client import XPengMQTTClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,9 +46,15 @@ async def async_setup_entry(
 
     entities = [
         XPengSentinelSwitch(coordinator, mqtt_client),
+        XPengChargingSwitch(coordinator, mqtt_client),
         XPengTrunkPowerSwitch(coordinator, mqtt_client),
         XPengDefrostSwitch(coordinator, mqtt_client),
         XPengParkingLightsSwitch(coordinator, mqtt_client),
+    ]
+    entities = [
+        entity for entity in entities
+        if not isinstance(entity, XPengDefrostSwitch)
+        or include_legacy_entity(entry, policy, "switch", "defrost_switch")
     ]
     # A switch keeps a meaningful state under READ_ONLY (X-Guard armed, defrost
     # on), so READ_ONLY creates it and only DISABLED removes it; the command
@@ -498,3 +508,59 @@ class XPengHvacScheduleSwitch(XPengEntity, SwitchEntity):
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
         await self._update_validity(False)
+
+
+class XPengChargingSwitch(XPengEntity, SwitchEntity):
+    """Start/stop charging, displaying measured charging activity."""
+
+    _policy_group = GROUP_CHARGING
+    _attr_name = "Charging"
+    _attr_translation_key = "charging"
+    _attr_icon = "mdi:battery-charging"
+    _attr_assumed_state = False
+
+    def __init__(self, coordinator, mqtt_client) -> None:
+        super().__init__(coordinator)
+        self._mqtt_client = mqtt_client
+        self._attr_unique_id = f"xpeng_{self._vin}_charging_switch"
+
+    @property
+    def is_on(self) -> bool | None:
+        content = (self.coordinator.data or {}).get("msg_content", {})
+        code = content.get("instant", {}).get("charge", {}).get("charging_state")
+        raw_power = content.get("interval", {}).get("charge", {}).get("power")
+        try:
+            power = float(raw_power) if raw_power is not None else None
+        except (TypeError, ValueError):
+            power = None
+        if code == 2 or (power is not None and power > 0):
+            return True
+        if code in (0, 1, 3, 4, 8, 15) or power == 0:
+            return False
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        content = (self.coordinator.data or {}).get("msg_content", {})
+        charge = content.get("instant", {}).get("charge")
+        poll_status = getattr(self.coordinator, "poll_status", {}) or {}
+        return {
+            "charging_state": charging_state_label(charge),
+            "cable_connected": charge_cable_state(
+                charge, silent_seconds=poll_status.get("meaningful_silence_seconds")
+            ) if charge else None,
+        }
+
+    async def _async_set_charging(self, value: int) -> None:
+        await async_send_confirmed(
+            self.hass, self._mqtt_client, self._vin, 4,
+            {"cmd_type": 1, "cmd_value": value},
+        )
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self._guard()
+        await self._async_set_charging(1)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self._guard()
+        await self._async_set_charging(0)

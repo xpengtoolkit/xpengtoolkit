@@ -10,9 +10,13 @@ Also runs the module's own embedded self-test.
 
 from __future__ import annotations
 
+# Load the stdlib module before the component directory can shadow it.
+import calendar  # noqa: F401
 import json
 import os
 import pathlib
+# Cache the stdlib extension before component select.py can shadow it.
+import select  # noqa: F401
 import sys
 import tempfile
 import unittest

@@ -24,6 +24,8 @@ from . import poll_status
 from .const import DOMAIN, SENSOR_DESCRIPTIONS, XPengSensorEntityDescription
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
+from .entity_layout import include_legacy_entity
+from .command_policy import default_policy
 from .xpeng_errors import command_response_message
 from .vin_descriptor import mask_vin
 
@@ -68,6 +70,12 @@ async def async_setup_entry(
     entities: list[SensorEntity] = [
         XPengSensor(coordinator, description)
         for description in SENSOR_DESCRIPTIONS
+        if include_legacy_entity(
+            entry,
+            getattr(coordinator, "command_policy", None) or default_policy(),
+            "sensor",
+            description.key,
+        )
     ]
 
     # Add diagnostic sensors
@@ -1098,9 +1106,15 @@ class XPengRemoteCapabilitiesSensor(XPengEntity, SensorEntity):
         caps = data.get("capabilities") if isinstance(data, dict) else data
         if not isinstance(caps, list):
             return {"raw": data}
+        from .vehicle_capabilities import from_coordinator
+
+        features = from_coordinator(self.coordinator)
         return {
             "count": len(caps),
             "capabilities": caps,
+            "hardware": features.hardware,
+            "model_configuration": features.local,
+            "feature_support": features.decisions(),
         }
 
 
