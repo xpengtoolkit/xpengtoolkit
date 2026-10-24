@@ -82,7 +82,9 @@ COMMAND_STATE_SECTIONS = {
     3: "hvac",  # Climate replies carry the measured HVAC snapshot, not an echo.
     CHARGE_SERVICE_TYPE: "charge",
     SEAT_SERVICE_TYPE: "seat",
+    9: "door",  # Lock/trunk replies contain the measured door snapshot.
     12: "window",
+    31: "steerWheel",  # Steering heat reply, observed alongside app readback.
     33: "protectMode",  # Pet mode: 0=off, 1=checking, 2=on.
 }
 

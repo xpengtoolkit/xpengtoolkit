@@ -8,9 +8,10 @@ from typing import Any
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .command_execution import async_send_confirmed
 from .command_policy import GROUP_COMFORT, default_policy
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
@@ -21,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 #: Seat commands are ``service_type 30`` carrying ``{"cmd_type", "mode", "cmd_value"}``.
 #:
-#:   cmd_type  1 = the DRIVER's seat, 0 = the passenger's, 3 = left rear, 4 = right
+#:   cmd_type  1 = driver, 0 = legacy passenger (FJ/P7+ uses 2), 3 = left rear, 4 = right
 #:             rear. The front two were measured against XPENG's app on a car whose
 #:             owner could check it, because the car's own state field only says which
 #:             *function* changed, not whose seat it was. Those two were once swapped
@@ -243,6 +244,10 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
                 translation_placeholders={"option": option},
             )
         mode, cmd_value = self._commands[option]
+        # Model discovery can finish after this entity was constructed.
+        position = self._cmd_type
+        if position == 0 and getattr(self.coordinator, "vehicle_type_code", None) == "FJ":
+            position = 2
 
         # `mode` selects the level (measured 2026-10-14); it is not the momentary press
         # this originally modelled. The off-first step is kept anyway, on purpose:
@@ -259,16 +264,10 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
         # to make with a fresh measurement, not a cleanup.
         plan = [0, mode] if mode != 0 else [0]
         for step in plan:
-            sent = await self.hass.async_add_executor_job(
-                self._mqtt_client.send_command,
-                self._vin, 30,
-                {"cmd_type": self._cmd_type, "mode": step, "cmd_value": cmd_value},
+            await async_send_confirmed(
+                self.hass, self._mqtt_client, self._vin, 30,
+                {"cmd_type": position, "mode": step, "cmd_value": cmd_value},
             )
-            if not sent:
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN,
-                    translation_key="command_not_sent",
-                )
             if len(plan) > 1 and step == 0:
                 # Back-to-back commands did not both land in one test, so give the car a
                 # moment between the off and the press.
@@ -301,8 +300,7 @@ class XPengSteeringWheelHeatSelect(XPengEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         self._guard()
         value = STEER_VALUE_MAP.get(option, 0)
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 31,
+        await async_send_confirmed(
+            self.hass, self._mqtt_client, self._vin, 31,
             {"cmd_type": 1, "cmd_value": value},
         )

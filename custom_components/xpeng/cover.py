@@ -109,8 +109,15 @@ class XPengCover(XPengEntity, CoverEntity):
     def is_closed(self) -> bool | None:
         instant = self._instant()
         if self._key == "trunk":
+            # Newer vehicles report the trunk in the door section. The old tail
+            # section can remain closed while the boot is physically open.
+            value = instant.get("door", {}).get("trunk_ajar_st_new")
+            if value is not None and not (type(value) is int and value < 0):
+                return ({0: True, 1: True, 3: False, 4: False, 5: False,
+                         7: False, 8: False}.get(value)
+                        if type(value) is int else None)
             value = instant.get("tail", {}).get("tail_status")
-            return {0: True, 1: False}.get(value)
+            return {0: True, 1: False}.get(value) if type(value) is int else None
         if self._key == "charge_port":
             return {"Closed": True, "Open": False, "Connected": False}.get(
                 charge_port_state(instant.get("charge"))

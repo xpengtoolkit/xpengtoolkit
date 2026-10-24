@@ -929,11 +929,24 @@ class XPengMQTTClient:
         body = data.get("msg_content")
         echo = body if isinstance(body, dict) else {}
         msg_id = data.get("msg_id")
-        if msg_id is not None and not isinstance(msg_id, (str, int)):
+        msg_ref = data.get("msg_ref")
+        if any(value is not None and type(value) not in (str, int)
+               for value in (msg_id, msg_ref)):
             return
         with self._pending_lock:
             key = str(msg_id) if msg_id is not None else None
-            entry = self._pending.get(key)
+            # P7+ replies generate a new msg_id and echo our request in msg_ref.
+            # An explicit stale reference must never confirm a newer identical
+            # command through the compatibility echo fallback below.
+            if msg_ref is not None:
+                entry = self._pending.get(str(msg_ref))
+                if entry is None:
+                    return
+                other = self._pending.get(key)
+                if other is not None and other is not entry:
+                    return
+            else:
+                entry = self._pending.get(key)
             if entry is not None:
                 if entry["service_type"] != stype:
                     return
@@ -942,7 +955,7 @@ class XPengMQTTClient:
                        for k in ("cmd_type", "cmd_value")):
                     return
             else:
-                # Some firmware rewrites IDs. Only an echoed request identity can
+                # Without a request reference, only an echoed request identity can
                 # distinguish a charge/defrost/window command from its legacy twin.
                 if not all(k in echo for k in ("cmd_type", "cmd_value")):
                     return

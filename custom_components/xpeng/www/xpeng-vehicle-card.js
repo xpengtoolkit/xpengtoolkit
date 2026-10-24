@@ -1,6 +1,6 @@
 /* XPENG Vehicle Card v0.1.7 · No dependencies. Uses existing Home Assistant entities. */
 (() => {
-  const VERSION = "0.1.7";
+  const VERSION = "0.1.8";
   const ROLES = {
     image: ["image", "vehicle_picture"], battery: ["sensor", "battery"], range: ["sensor", "range"],
     range_type: ["sensor", "range_type"], lock: ["lock", "door_lock"], trunk: ["cover", "trunk"],
@@ -28,6 +28,7 @@
     ["ac_cleaning","A/C cleaning","air-filter","a_c_cleaning"],
     ["rear_defrost","Rear window defroster","car-defrost-rear","rear_window_defroster"],
     ["pet_mode","Pet mode","dog","pet_mode"],
+    ["silent_mode","Silent mode","weather-night","silent_mode"],
   ];
   const MODE_KEYS = {refresh_air:"refresh"};
   for(const [key] of CLIMATE_MODES)ROLES[key]=["switch","climate_"+(MODE_KEYS[key]||key)];

@@ -622,6 +622,9 @@
       },
       "climate_pet_mode": {
         "name": "Husdjursläge"
+      },
+      "climate_silent_mode": {
+        "name": "Tyst läge"
       }
     },
     "number": {

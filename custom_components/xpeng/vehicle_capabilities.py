@@ -36,6 +36,7 @@ LOCAL_KEYS = frozenset(
         "isSupportAirDeodorization",
         "isSupportAirHighTemp",
         "isSupportAirClean",
+        "isSupportSilentMode",
         "isSupportRearDeforest",
         "isSupportAcAutoMode",
         "isSeatDoubleCheck",
@@ -112,6 +113,9 @@ class VehicleCapabilities:
                 h("AVM"),
                 None if big_customer is None else not big_customer,
             )
+        if feature == "silent_mode":
+            local = l("isSupportSilentMode")
+            return local if local is not None else s("HVAC_SILENT_MODE")
         if feature == "pet_mode":
             return s("PROTECT_MODE")
         if feature in CLIMATE_FEATURES:
@@ -148,6 +152,7 @@ CLIMATE_FEATURES = {
     "refresh": "isSupportAirDeodorization",
     "sterilisation": "isSupportAirHighTemp",
     "ac_cleaning": "isSupportAirClean",
+    "silent_mode": "isSupportSilentMode",
     "rear_defrost": "isSupportRearDeforest",
 }
 
@@ -217,7 +222,7 @@ for _prefix, _feature in (
 
 
 def model_flags(vehicle_type: str | None, vehicle_name: str | None) -> dict[str, bool]:
-    """Explicit app 3.12.0 model facts; no fallback assumptions for unknown models."""
+    """Explicit app/vehicle model facts; no fallback assumptions for unknown models."""
     profile = MODEL_FEATURES.get(vehicle_type, {})
     # Human-readable vehicle names are not variant codes in this catalog.
     return dict(profile.get(vehicle_type, {}))

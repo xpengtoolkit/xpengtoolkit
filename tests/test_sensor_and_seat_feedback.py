@@ -56,19 +56,45 @@ class EnumSensorValues(unittest.TestCase):
         self.assertEqual(self.sensor(74, device_class="battery").native_value, 74)
 
 class SeatPublication(unittest.IsolatedAsyncioTestCase):
-    def seat(self, results):
+    def seat(self, results, *, position=1, model=None):
         calls = []
         def send(*args):
             calls.append(args)
             return results.pop(0)
-        cls = load_class("XPengSeatSelect", "select.py")
-        entity = cls(SimpleNamespace(), SimpleNamespace(send_command=send),
+        async def confirmed(hass, client, vin, subsystem, content):
+            result = send(vin, subsystem, content)
+            if isinstance(result, Exception):
+                raise result
+            if not result:
+                raise HAError(translation_key="command_not_sent")
+        cls = load_class("XPengSeatSelect", "select.py", async_send_confirmed=confirmed)
+        entity = cls(SimpleNamespace(vehicle_type_code=model), SimpleNamespace(send_command=send),
                      "driver_seat_heat_select", "mdi:car-seat-heater",
-                     1, "seat", ["Off", "Heat 3"], {"Off": (0, 1), "Heat 3": (3, 1)})
+                     position, "seat", ["Off", "Heat 3"], {"Off": (0, 1), "Heat 3": (3, 1)})
         async def executor(fn, *args):
             return fn(*args)
         entity.hass = SimpleNamespace(async_add_executor_job=executor)
         return entity, calls
+
+    async def test_passenger_mapping_uses_the_model_at_send_time(self):
+        for model in ("FJ", "EA", "UNKNOWN", None):
+            for position in (0, 1, 3, 4):
+                with self.subTest(model=model, position=position):
+                    seat, calls = self.seat([True], position=position)
+                    # The real startup discovers FJ after entity construction.
+                    seat.coordinator.vehicle_type_code = model
+                    await seat.async_select_option("Off")
+                    expected = 2 if model == "FJ" and position == 0 else position
+                    self.assertEqual(calls[0][2]["cmd_type"], expected)
+
+    async def test_fj_off_first_and_requested_level_use_the_same_position(self):
+        seat, calls = self.seat([True, True], position=0)
+        seat.coordinator.vehicle_type_code = "FJ"
+        with patch.object(asyncio, "sleep", new_callable=AsyncMock):
+            await seat.async_select_option("Heat 3")
+        self.assertEqual([c[2] for c in calls], [
+            {"cmd_type": 2, "mode": 0, "cmd_value": 1},
+            {"cmd_type": 2, "mode": 3, "cmd_value": 1}])
 
     async def test_invalid_option_never_sends_off(self):
         seat, calls = self.seat([])
@@ -91,6 +117,23 @@ class SeatPublication(unittest.IsolatedAsyncioTestCase):
         with patch.object(asyncio, "sleep", new_callable=AsyncMock):
             with self.assertRaises(HAError):
                 await seat.async_select_option("Heat 3")
+        self.assertEqual([c[2]["mode"] for c in calls], [0, 3])
+
+    async def test_vehicle_refusal_stops_before_the_requested_level(self):
+        seat, calls = self.seat([HAError(translation_key="command_rejected")])
+        with patch.object(asyncio, "sleep", new_callable=AsyncMock) as sleep:
+            with self.assertRaises(HAError) as raised:
+                await seat.async_select_option("Heat 3")
+        self.assertEqual(raised.exception.translation_key, "command_rejected")
+        self.assertEqual(len(calls), 1)
+        sleep.assert_not_awaited()
+
+    async def test_timeout_on_requested_level_is_not_reported_as_success(self):
+        seat, calls = self.seat([True, HAError(translation_key="command_not_confirmed")])
+        with patch.object(asyncio, "sleep", new_callable=AsyncMock):
+            with self.assertRaises(HAError) as raised:
+                await seat.async_select_option("Heat 3")
+        self.assertEqual(raised.exception.translation_key, "command_not_confirmed")
         self.assertEqual([c[2]["mode"] for c in calls], [0, 3])
 
     async def test_success_preserves_the_measured_command_encoding(self):

@@ -293,23 +293,23 @@ class XPengParkingLightsSwitch(XPengEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._guard()
+        await async_send_confirmed(
+            self.hass, self._mqtt_client, self._vin, 5,
+            {"cmd_type": 4, "cmd_value": 1},
+        )
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 5, {"cmd_type": 4, "cmd_value": 1},
-        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._guard()
+        await async_send_confirmed(
+            self.hass, self._mqtt_client, self._vin, 5,
+            {"cmd_type": 4, "cmd_value": 0},
+        )
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 5, {"cmd_type": 4, "cmd_value": 0},
-        )
 
 
 class XPengAutoUpgradeSwitch(XPengEntity, SwitchEntity):

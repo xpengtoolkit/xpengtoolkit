@@ -55,6 +55,7 @@ class ModeTests(unittest.IsolatedAsyncioTestCase):
             "ac_cleaning": 10,
             "rear_defrost": 14,
             "pet_mode": 1,
+            "silent_mode": 17,
         }
         self.assertEqual(len(CLIMATE_MODES), len(expected))
         for mode in CLIMATE_MODES:
@@ -75,6 +76,20 @@ class ModeTests(unittest.IsolatedAsyncioTestCase):
                 2,
             )
             self.assertEqual(e._attr_unique_id, f"xpeng_{VIN}_climate_{mode.key}")
+
+    def test_silent_mode_uses_explicit_support_and_cloud_override(self):
+        from custom_components.xpeng.vehicle_capabilities import from_coordinator
+        mode = next(m for m in CLIMATE_MODES if m.key == "silent_mode")
+        e, _ = self.make(mode, flags={})
+        e.coordinator.vehicle_type_code = "FJ"
+        self.assertTrue(from_coordinator(e.coordinator).support("silent_mode"))
+        e.coordinator.vehicle_local_config = {"isSupportSilentMode": False}
+        self.assertFalse(from_coordinator(e.coordinator).support("silent_mode"))
+        e.coordinator.vehicle_type_code = "UNKNOWN"
+        e.coordinator.vehicle_local_config = {}
+        self.assertFalse(from_coordinator(e.coordinator).support("silent_mode"))
+        e.coordinator.remote_capabilities = {"capabilities": ["HVAC_SILENT_MODE"]}
+        self.assertTrue(from_coordinator(e.coordinator).support("silent_mode"))
 
     def test_duration_is_only_sent_for_modes_and_vehicles_that_accept_it(self):
         for mode in CLIMATE_MODES:

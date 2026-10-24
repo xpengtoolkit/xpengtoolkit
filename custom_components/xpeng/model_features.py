@@ -1,4 +1,4 @@
-"""Explicit Android 3.12.0 model gates for implemented controls; cloud overrides win."""
+"""Explicit app model gates and verified P7+ additions; cloud overrides win."""
 
 MODEL_FEATURES = {
     "DC": {
@@ -131,6 +131,8 @@ MODEL_FEATURES = {
     },
     "FJ": {
         "FJ": {
+            # P7+ cloud command + Android 3.16.0 toggle verified 2026-10-24.
+            "isSupportSilentMode": True,
             "isSeatDoubleCheck": False,
             "isSupportAirClean": True,
             "isSupportAirDeodorization": True,

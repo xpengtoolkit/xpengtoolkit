@@ -29,7 +29,9 @@ invents an optimistic on/temperature state. Successful service-3 replies merge
 their measured HVAC fields into the existing snapshot without changing the full
 snapshot timestamp or unrelated telemetry. Empty success replies invent nothing.
 
-Changing a native target does not turn on the car's A/C. The explicit
+Changing a native target sends only the temperature request, but the vehicle may
+start a timed A/C session in response. This also occurs when changing the target
+in the official Android app with A/C initially off (P7+, 24 October 2026). The explicit
 `xpeng.climate_on` service sets its requested target and then powers on, stopping
 if the target is rejected. All existing entity unique IDs and evcc interfaces
 are retained.
@@ -58,6 +60,7 @@ are not forced into a single mutually exclusive preset selector.
 | A/C cleaning | 3 | 10 | 1 / 0 | hvac.hvac_clean_mode |
 | Rear window defroster | 3 | 14 | 1 / 0 | hvac.hvac_mirror_heat_mode |
 | Pet mode | 33 | 1 | 2 / 1 | protectMode.protect_mode_status |
+| Silent mode | 3 | 17 | 1 / 0 | hvac.hvac_silent_mode |
 
 Pet telemetry uses 0=off, 1=checking and 2=on. The checking state remains unknown,
 rather than being confused with the stop-command value. Successful Pet responses
@@ -106,7 +109,8 @@ HVAC_TEMP_RANGE_ADJUSTMENT together with HVAC_TEMP_SUPPORT_FLOAT enables LO=15.5
 and HI=32.5 through the ordinary fractional-temperature command. Without both,
 the accepted range stays 16-32 C. The native entity exposes the extended limits
 and a temperature_extremes attribute for a card to label these sentinel values.
-No power-on or quick-heating/cooling command is implied by changing the target.
+The integration sends no additional power-on or quick-heating/cooling request
+when changing the target; the vehicle can nevertheless start A/C, as noted above.
 
 The P7+ owner selected LO then HI in the official app with Bluetooth off on
 22 October 2026. Fresh recorded vehicle states showed 15.5 and 32.5, then 22 C and power off. This confirms the app/state
@@ -129,3 +133,15 @@ Pet mode and Sterilisation belong to COMFORT and are allowed by Safe/Safe Plus
 only when the vehicle supports them. Vehicle state restrictions remain in force.
 Physical checks described here apply to the owner's P7+; G6/G9 and other models
 still need independent validation of these commands and acknowledgement identity.
+
+## Android command audit (24 October 2026)
+
+The cloud-only P7+ audit in [ANDROID_COMMAND_AUDIT.md](ANDROID_COMMAND_AUDIT.md)
+confirmed Silent mode against the official Android 3.16.0 toggle while Pet mode
+was active. Support follows an explicit cloud/model flag or HVAC_SILENT_MODE;
+the measured FJ profile enables it, and cloud overrides still win. It uses no
+invented duration. The reusable card includes the same measured switch.
+
+The audit also confirmed Pet mode on/off successfully on this occasion. The
+earlier Rear Seat Reminder refusal remains a conditional vehicle restriction,
+not evidence that this model lacks Pet mode.

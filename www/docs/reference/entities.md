@@ -36,7 +36,7 @@ Unknown optional hardware is not automatically declared unsupported.
 | `switch.xpeng_<vehicle>_charging` | switch | Measured charging state, explicit start/stop with acknowledgement checks |
 | `switch.xpeng_<vehicle>_maximum_heating` / `_maximum_cooling` | switch | Capability-gated measured climate modes |
 | `switch.xpeng_<vehicle>_<climate_mode>` | switch | Capability-gated measured Refresh, Sterilisation and A/C cleaning |
-| `switch.xpeng_<vehicle>_<climate_mode>` | switch | Capability-gated measured rear defrost/Pet mode; vehicle restrictions still apply |
+| `switch.xpeng_<vehicle>_<climate_mode>` | switch | Capability-gated measured rear defrost/Pet mode/Silent Mode; vehicle restrictions still apply |
 | `sensor.xpeng_<vehicle>_hvac_fan_speed` | sensor | Raw fan telemetry retained in compact mode; fan-speed control remains withheld |
 | `binary_sensor.xpeng_<vehicle>_climate` | binary sensor | Original evcc-compatible climate on/off interface retained with its existing unique ID |
 

@@ -125,7 +125,7 @@ The reassuring version would be a lie:
   mode, and whoever can read or write your Home Assistant configuration files can
   change it without you.
 * It is **not** a per-user permission. It is the install's ceiling. A logged-in user
-  must additionally be allowed to control at least one XPENG entity; that part is Home
+  must additionally be allowed to control an XPENG entity belonging to the receiving config entry; that part is Home
   Assistant's own groups. Calls with no user at all cannot be checked that way, which
   is exactly why the ceiling applies to them.
 * The **account credentials are the same at every level**. The mode limits what this

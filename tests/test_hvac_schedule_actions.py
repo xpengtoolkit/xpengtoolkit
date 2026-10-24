@@ -205,7 +205,7 @@ class ScheduleTests(unittest.IsolatedAsyncioTestCase):
         )
         seen = []
 
-        async def guard(hass, call, service, group, p):
+        async def guard(hass, call, service, group, p, *, entry_id=None):
             seen.append(p)
             if not p.allows(group):
                 raise Error("Denied selected policy")
@@ -214,6 +214,8 @@ class ScheduleTests(unittest.IsolatedAsyncioTestCase):
         env = {
             "hass": hass,
             "ServiceCall": object,
+            "DOMAIN": "xpeng",
+            "HomeAssistantError": Error,
             "service": "create_hvac_schedule",
             "group": policy.GROUP_COMFORT,
             "schedule_entry": schedules.schedule_entry,

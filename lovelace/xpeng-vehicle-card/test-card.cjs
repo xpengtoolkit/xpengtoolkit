@@ -132,11 +132,13 @@ async function test(name,fn) {await fn();passed++;console.log(`PASS ${name}`);}
   });
   await test("new climate modes render without requests and use one measured switch each",async()=>{
     const {card,calls,put}=setup();
-    for(const suffix of ["maximum_heating","maximum_cooling","refresh","sterilisation","a_c_cleaning","rear_window_defroster"])put("switch",suffix,"off",{control_allowed:true});
+    for(const suffix of ["maximum_heating","maximum_cooling","refresh","sterilisation","a_c_cleaning","rear_window_defroster","silent_mode"])put("switch",suffix,"off",{control_allowed:true});
     card._tab="climate";card._render();assert.equal(calls.length,0);
-    for(const key of ["max_heating","max_cooling","refresh_air","sterilisation","ac_cleaning","rear_defrost"]){const a=[...card._actions.values()].find(a=>a.key===key);assert.equal(a.service,"switch.turn_on");assert.equal(a.confirm,true);}
+    for(const key of ["max_heating","max_cooling","refresh_air","sterilisation","ac_cleaning","rear_defrost","silent_mode"]){const a=[...card._actions.values()].find(a=>a.key===key);assert.equal(a.service,"switch.turn_on");assert.equal(a.confirm,true);}
     const start=[...card._actions.values()].find(a=>a.key==="max_cooling");await card._send(start);assert.equal(calls.length,1);assert.equal(card._entity("max_cooling").state,"off");
     put("switch","maximum_cooling","on");card._render();assert.equal([...card._actions.values()].find(a=>a.key==="max_cooling").service,"switch.turn_off");
+    const silent=[...card._actions.values()].find(a=>a.key==="silent_mode");await card._send(silent);assert.equal(calls[1][3].entity_id,"switch.xpeng_test_silent_mode");assert.equal(card._entity("silent_mode").state,"off");
+    put("switch","silent_mode","on",{control_allowed:true});card._render();assert.equal([...card._actions.values()].find(a=>a.key==="silent_mode").service,"switch.turn_off");
   });
   await test("missing modes disappear and unknown measured modes retain explicit stop",()=>{
     const {card,calls,put}=setup();put("switch","maximum_heating","unknown");card._tab="climate";card._render();

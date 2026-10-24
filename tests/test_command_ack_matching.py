@@ -113,6 +113,76 @@ class AckMatching(unittest.TestCase):
                 self.assertFalse(worker.is_alive())
 
 
+
+    def test_vehicle_response_references_original_request_id(self):
+        # P7+ cloud reply: response msg_id is new; msg_ref echoes the sent ID.
+        for code in (200, 10401):
+            with self.subTest(code=code):
+                c, e = self.make()
+                reply = {"msg_id": "vehicle-response-id", "msg_ref": "original-id",
+                         "msg_type": 1, "msg_content": {"code": code}}
+                c._resolve_pending(reply, 4)
+                self.assertTrue(e["event"].is_set())
+                self.assertIs(e["result"], reply)
+
+    def test_reference_selects_one_of_identical_pending_commands(self):
+        c, e = self.make()
+        other = {**e, "event": threading.Event()}
+        c._pending["second-id"] = other
+        c._resolve_pending({"msg_id": "response-id", "msg_ref": "second-id",
+                            "msg_type": 1, "msg_content": {"code": 200}}, 4)
+        self.assertFalse(e["event"].is_set())
+        self.assertTrue(other["event"].is_set())
+
+    def test_stale_reference_never_falls_back_to_matching_echo(self):
+        c, e = self.make()
+        c._resolve_pending({"msg_id": "response-id", "msg_ref": "expired-id",
+                            "msg_type": 1, "msg_content": {
+                                "code": 200, "cmd_type": 1, "cmd_value": 1}}, 4)
+        self.assertFalse(e["event"].is_set())
+
+    def test_conflicting_pending_identifiers_are_rejected(self):
+        c, e = self.make()
+        other = {**e, "event": threading.Event()}
+        c._pending["second-id"] = other
+        c._resolve_pending({"msg_id": "second-id", "msg_ref": "original-id",
+                            "msg_type": 1, "msg_content": {"code": 200}}, 4)
+        self.assertFalse(e["event"].is_set())
+        self.assertFalse(other["event"].is_set())
+
+    def test_reference_does_not_bypass_subsystem_type_or_echo_checks(self):
+        c, e = self.make()
+        reply = {"msg_id": "response-id", "msg_ref": "original-id",
+                 "msg_type": 1, "msg_content": {"code": 200}}
+        c._resolve_pending(reply, 12)
+        c._resolve_pending({**reply, "msg_type": 3}, 4)
+        c._resolve_pending({**reply, "msg_content": {"code": 200, "cmd_value": 0}}, 4)
+        self.assertFalse(e["event"].is_set())
+
+    def test_invalid_reference_cannot_fall_back_to_an_exact_message_id(self):
+        c, e = self.make()
+        for ref in ([], {}, True, False, 1.5, ""):
+            c._resolve_pending({"msg_id": "original-id", "msg_ref": ref,
+                                "msg_type": 1, "msg_content": {"code": 200}}, 4)
+        self.assertFalse(e["event"].is_set())
+
+    def test_publish_wait_receive_accepts_referenced_vehicle_response(self):
+        c, _ = _client()
+        result = []
+        def publish(topic, payload, qos):
+            request = json.loads(payload)
+            reply = {"service_type": 3, "msg_type": 1, "msg_id": "vehicle-response-id",
+                     "msg_ref": request["msg_id"], "msg_content": {"code": 200,
+                     "hvac_on": 1, "hvac_temp_float": 24.0}}
+            result.append(reply)
+            c._on_message(None, None, _Msg(reply))
+            return SimpleNamespace(rc=0)
+        c._connected = True
+        c._client = SimpleNamespace(publish=publish)
+        self.assertEqual(c.send_command_wait("SYNTHETIC_VIN", 3,
+                         {"cmd_type": 1, "cmd_value": 1}, timeout=0.05), result[0])
+
+
 _IMPORTS.finish(globals())
 
 if __name__ == "__main__":

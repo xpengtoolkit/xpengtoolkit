@@ -622,6 +622,9 @@
       },
       "climate_pet_mode": {
         "name": "Huisdierenmodus"
+      },
+      "climate_silent_mode": {
+        "name": "Stille modus"
       }
     },
     "number": {

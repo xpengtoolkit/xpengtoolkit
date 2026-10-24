@@ -310,7 +310,7 @@ Read the [0.6.26 upgrade and downgrade notes](docs/RELEASE_NOTES_0.6.26.md) befo
 ### Climate protocol and feedback
 
 Independent app modes use one measured switch each, including maximum heating/
-cooling, cleaning, rear defrost and Pet mode. Optional support follows each car’s
+cooling, cleaning, rear defrost, Pet mode and Silent Mode. Optional support follows each car’s
 capabilities; unsupported controls are disabled. Schedule services can target a
 specific vehicle, report errors and refresh the calendar after edits.
 

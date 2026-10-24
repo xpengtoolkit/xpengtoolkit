@@ -157,6 +157,7 @@ ENGLISH_ENTITY_NAMES: dict[str, dict[str, str]] = {
         "climate_ac_cleaning": "A/C cleaning",
         "climate_rear_defrost": "Rear window defroster",
         "climate_pet_mode": "Pet mode",
+        "climate_silent_mode": "Silent mode",
     },
     "number": {
         "sentinel_sensitivity_control": "Sentinel sensitivity",

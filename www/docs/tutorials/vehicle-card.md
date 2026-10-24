@@ -106,7 +106,7 @@ Four tabs over the vehicle image:
 - **Climate** - A/C on/off, target temperature, front defrost, seat
   heating/ventilation and steering-wheel heating. Capability-gated modes
   (maximum heating/cooling, Refresh, Sterilisation, A/C cleaning, rear defrost,
-  Pet mode) appear only when the integration reports that switch. LO/HI shortcuts
+  Pet mode, Silent Mode) appear only when the integration reports that switch. LO/HI shortcuts
   appear only when the climate entity advertises those endpoints. Changing a
   temperature does not switch A/C on.
 - **Charging** - measured battery, power and charging state, the charge-limit

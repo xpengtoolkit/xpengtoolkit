@@ -45,6 +45,7 @@ CLIMATE_MODES = (
         "sterilisation", "Sterilisation", "mdi:shield-sun", 9, "hvac_high_temp_mode"
     ),
     ClimateMode("ac_cleaning", "A/C cleaning", "mdi:air-filter", 10, "hvac_clean_mode"),
+    ClimateMode("silent_mode", "Silent mode", "mdi:weather-night", 17, "hvac_silent_mode"),
     ClimateMode(
         "rear_defrost",
         "Rear window defroster",

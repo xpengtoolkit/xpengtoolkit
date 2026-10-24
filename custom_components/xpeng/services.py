@@ -850,8 +850,17 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 entry_data = schedule_entry(hass, call.data)
             else:
                 entry_data = _get_entry_data(hass) or {}
+            entry_id = next(
+                (key for key, data in hass.data.get(DOMAIN, {}).items()
+                 if data is entry_data),
+                None,
+            )
+            if entry_id is None:
+                raise HomeAssistantError("No live XPENG config entry for this service")
             policy = entry_data.get("command_policy") or default_policy()
-            await async_guard_service(hass, call, service, group, policy)
+            await async_guard_service(
+                hass, call, service, group, policy, entry_id=entry_id,
+            )
             await handler(call)
 
         if schema is None:

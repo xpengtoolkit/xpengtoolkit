@@ -184,7 +184,7 @@ class _Call:
 
 
 def _run(coro):
-    return asyncio.new_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 # ── 1. the policy table ───────────────────────────────────────────────────
@@ -744,6 +744,85 @@ class TestGate(unittest.TestCase):
             gate.policy_for_entry(entry).mode, policy.PRESET_FULL
         )
 
+
+
+
+class TestRegisteredServiceVehicleScope(unittest.TestCase):
+    """Run the real registered gate and unlock handler against two fake cars."""
+
+    def make(self, allowed=(), *, admin=False):
+        hass = _Hass(user=_User(is_admin=admin, allowed=allowed),
+                     entity_ids=["lock.car_a", "lock.car_b"])
+        hass.entity_registry.async_get = hass.entity_registry.entities.get
+        async def executor_job(function, *args):
+            return function(*args)
+        hass.async_add_executor_job = executor_job
+        sent = []
+        for key in ("a", "b"):
+            hass.entity_registry.entities["lock.car_" + key].config_entry_id = key
+            def publish(vin, service_type, content, msg_type, key=key):
+                sent.append((key, vin, service_type, content, msg_type))
+                return True
+            hass.data["xpeng"][key] = {
+                "entry": types.SimpleNamespace(entry_id=key),
+                "coordinator": types.SimpleNamespace(vin="vehicle-" + key),
+                "mqtt_client": types.SimpleNamespace(send_command=publish),
+                "command_policy": policy.CommandPolicy.from_preset(policy.PRESET_FULL),
+            }
+        tree = ast.parse((PKG / "services.py").read_text(encoding="utf-8"))
+        names = ("_get_entry_data", "_send", "handle_unlock", "_gated")
+        nodes = [next(n for n in ast.walk(tree)
+                      if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                      and n.name == name) for name in names]
+        env = {
+            "hass": hass, "DOMAIN": "xpeng", "Any": object,
+            "HomeAssistant": object, "ServiceCall": object,
+            "HomeAssistantError": HomeAssistantError,
+            "COMMAND_NOT_SENT_MESSAGE": "not sent",
+            "_LOGGER": types.SimpleNamespace(error=lambda *args: None),
+            "service": "unlock", "group": policy.GROUP_ACCESS,
+            "default_policy": policy.default_policy,
+            "async_guard_service": gate.async_guard_service,
+        }
+        for name in ("CREATE_HVAC_SCHEDULE", "UPDATE_HVAC_SCHEDULE",
+                     "DELETE_HVAC_SCHEDULE", "LIST_HVAC_SCHEDULES"):
+            env["SERVICE_" + name] = name.lower()
+        exec(compile(ast.fix_missing_locations(ast.Module(body=nodes, type_ignores=[])),
+                     "services.py", "exec"), env)
+        env["handler"] = env["handle_unlock"]
+        return env["_gated"], sent
+
+    def test_control_of_another_car_does_not_authorize_the_first(self):
+        call, sent = self.make(allowed=["lock.car_b"])
+        with self.assertRaises(Unauthorized):
+            _run(call(_Call(user_id="limited-user")))
+        self.assertEqual(sent, [])
+
+    def test_claiming_another_target_cannot_authorize_a_different_dispatch(self):
+        call, sent = self.make(allowed=["lock.car_b"])
+        request = _Call(user_id="limited-user")
+        request.data = {"vehicle_entity_id": "lock.car_b"}
+        with self.assertRaises(Unauthorized):
+            _run(call(request))
+        self.assertEqual(sent, [])
+
+    def test_control_of_the_dispatched_car_is_sufficient(self):
+        call, sent = self.make(allowed=["lock.car_a"])
+        _run(call(_Call(user_id="limited-user")))
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0][0:2], ("a", "vehicle-a"))
+
+    def test_admin_still_uses_the_documented_first_entry(self):
+        call, sent = self.make(admin=True)
+        _run(call(_Call(user_id="admin")))
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0][0], "a")
+
+    def test_automation_still_uses_the_documented_first_entry(self):
+        call, sent = self.make()
+        _run(call(_Call()))
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0][0], "a")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

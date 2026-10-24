@@ -305,3 +305,14 @@ on this list, and that omission is the whole cost: heating got its third level i
 while ventilation stayed at two, purely because the first measurement recorded heating's
 range explicitly and ventilation's as bare "measured". Anything a measurement leaves
 unstated belongs here, even when it looks like it follows from its neighbour.
+
+## P7+ FJ exception verified on 24 October 2026
+
+The legacy passenger position 0 returned code 8 and left both passenger functions
+unchanged on the tested P7+ FJ. Position 2 selected heating and ventilation levels
+1, 2, 3 and Off; each level matched the official Android 3.16.0 seat graphic and
+reported passenger field, with Bluetooth disabled. Native passenger controls use
+2 only for FJ; other model positions remain unchanged. Seat and steering selects
+now await a correlated reply and surface refusals/timeouts, including stopping
+the off-first sequence if its preparatory request fails. The conservative
+off-first ordering and delay remain unchanged. See [the audit](ANDROID_COMMAND_AUDIT.md).

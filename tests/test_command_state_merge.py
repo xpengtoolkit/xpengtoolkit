@@ -259,6 +259,31 @@ class TestWindowFeedback(unittest.TestCase):
         self.assertFalse(coord._merge_command_state(ack))
 
 
+class TestDoorAndSteeringFeedback(unittest.TestCase):
+    def test_measured_access_and_steering_fields_update_the_shared_baseline_only(self):
+        for service, section, field, value in ((9, "door", "trunk_ajar_st_new", 5),
+                                                (31, "steerWheel", "steering_wheel_heat", 3)):
+            with self.subTest(service=service):
+                original = _cached_state()
+                original["timestamp"] = 123
+                coord = _coordinator_with(original)
+                coord.last_data_timestamp = 456
+                adopted = []
+                coord._baseline_sink = adopted.append
+                ack = {"service_type": service, "code": 200, "content": {"code": 200, field: value}}
+                self.assertTrue(coord._merge_command_state(ack))
+                self.assertEqual(coord._last_full_data["msg_content"]["instant"][section][field], value)
+                self.assertEqual(coord._last_full_data["timestamp"], 123)
+                self.assertEqual(coord.last_data_timestamp, 456)
+                self.assertIs(adopted[0], coord._last_full_data["msg_content"])
+                self.assertNotIn(field, original["msg_content"]["instant"].get(section, {}))
+                self.assertEqual(coord._last_full_data["msg_content"]["instant"]["charge"], original["msg_content"]["instant"]["charge"])
+                ack["code"] = 8
+                ack["content"][field] = 0
+                self.assertFalse(coord._merge_command_state(ack))
+                self.assertEqual(coord._last_full_data["msg_content"]["instant"][section][field], value)
+
+
 class TestClimateResponseUpdatesMeasuredState(unittest.TestCase):
     def test_climate_reply_updates_only_reported_fields_without_a_new_snapshot_time(self):
         original = _cached_state()
@@ -298,9 +323,10 @@ class TestWhatIsNotMerged(unittest.TestCase):
     def test_another_subsystems_response_is_not_charge_state(self):
         """Service 9 (door) answers with door fields, not charge fields."""
         coord = _coordinator_with(_cached_state())
-        ack = _charge_ack(max_range_charge=100)
+        ack = _charge_ack(driver_door_lock_st=0, trunk_ajar_st_new=5)
         ack["service_type"] = 9
-        self.assertFalse(coord._merge_command_state(ack))
+        self.assertTrue(coord._merge_command_state(ack))
+        self.assertEqual(coord._last_full_data["msg_content"]["instant"]["door"]["trunk_ajar_st_new"], 5)
         self.assertEqual(
             coord._last_full_data["msg_content"]["instant"]["charge"][
                 "max_range_charge"

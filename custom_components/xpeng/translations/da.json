@@ -622,6 +622,9 @@
       },
       "climate_pet_mode": {
         "name": "Kæledyrstilstand"
+      },
+      "climate_silent_mode": {
+        "name": "Lydløs tilstand"
       }
     },
     "number": {

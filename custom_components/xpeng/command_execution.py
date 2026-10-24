@@ -45,8 +45,8 @@ async def async_send_confirmed(
     Responses must match the message ID or echo the command identity as well
     as its subsystem. Acceptance never fabricates a physical state change.
     """
-    # Firmware may rewrite message IDs. Keep one request per subsystem in
-    # flight so the service-type fallback cannot satisfy a different request.
+    # Firmware may rewrite message IDs. Serialize each subsystem so an
+    # echoed command identity can be matched without competing local requests.
     locks = vars(client).setdefault("_confirmed_command_locks", {})
     lock = locks.setdefault(service_type, asyncio.Lock())
     async with lock:

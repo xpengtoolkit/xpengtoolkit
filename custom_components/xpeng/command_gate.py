@@ -123,12 +123,16 @@ def _fire_denied(
     hass.bus.async_fire(EVENT_COMMAND_DENIED, data)
 
 
-async def async_verify_caller_control(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Require caller control on the selected vehicle, or an XPENG entity.
+async def async_verify_caller_control(
+    hass: HomeAssistant, call: ServiceCall, *, entry_id: str | None = None,
+) -> None:
+    """Require caller control on the entry that receives this service call.
 
     Mirrors what Home Assistant's own entity service plumbing does for
     entity-targeted calls, which the XPENG services cannot benefit from because
-    none of them take an ``entity_id``. No user context means an automation,
+    they do not use native entity targeting. The registered service supplies
+    its resolved entry ID, so control of another car cannot authorize this one.
+    No user context means an automation,
     script, Supervisor token or the renewal app: allowed, deliberately.
     """
     user_id = call.context.user_id
@@ -149,6 +153,7 @@ async def async_verify_caller_control(hass: HomeAssistant, call: ServiceCall) ->
         if (
             entity is not None
             and entity.platform == DOMAIN
+            and (entry_id is None or entity.config_entry_id == entry_id)
             and user.permissions.check_entity(target, POLICY_CONTROL)
         ):
             return
@@ -157,6 +162,8 @@ async def async_verify_caller_control(hass: HomeAssistant, call: ServiceCall) ->
         )
     for entity in registry.entities.values():
         if entity.platform != DOMAIN:
+            continue
+        if entry_id is not None and entity.config_entry_id != entry_id:
             continue
         if user.permissions.check_entity(entity.entity_id, POLICY_CONTROL):
             return
@@ -174,13 +181,15 @@ async def async_guard_service(
     service: str,
     group: str,
     policy: CommandPolicy,
+    *,
+    entry_id: str | None = None,
 ) -> None:
     """Raise unless this service call is permitted. Call before doing any work.
 
     ``group`` of None means the service is exempt from the ceiling (credential
     import); the caller check still applies.
     """
-    await async_verify_caller_control(hass, call)
+    await async_verify_caller_control(hass, call, entry_id=entry_id)
 
     if group is None:
         return

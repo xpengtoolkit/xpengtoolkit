@@ -136,6 +136,22 @@ class CoverTests(unittest.IsolatedAsyncioTestCase):
         await e.async_close_cover()
         send.assert_called_with(VIN, 9, {"cmd_type": 2, "cmd_value": 3}, 2)
 
+    def test_new_trunk_status_wins_over_stale_legacy_tail(self):
+        for value in (3, 4, 5, 7, 8):
+            e, _ = self.make("trunk", state(door={"trunk_ajar_st_new": value}, tail={"tail_status": 0}))
+            self.assertFalse(e.is_closed)
+        for value in (0, 1):
+            e, _ = self.make("trunk", state(door={"trunk_ajar_st_new": value}, tail={"tail_status": 1}))
+            self.assertTrue(e.is_closed)
+
+    def test_unknown_new_trunk_status_does_not_claim_closed(self):
+        for value in (2, 6, 99, "1", True, 1.0, {}):
+            e, _ = self.make("trunk", state(door={"trunk_ajar_st_new": value}, tail={"tail_status": 0}))
+            self.assertIsNone(e.is_closed)
+        for value in (None, -1):
+            e, _ = self.make("trunk", state(door={"trunk_ajar_st_new": value}, tail={"tail_status": 1}))
+            self.assertFalse(e.is_closed)
+
     async def test_securing_only_never_opens_the_trunk(self):
         p = policy.CommandPolicy.from_preset("safe")
         e, send = self.make("trunk", p=p)
@@ -602,6 +618,21 @@ class LegacyAndOptionsTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result["data"]["allow_wake"])
         self.assertFalse(result["data"]["legacy_entities"])
 
+
+
+
+class ParkingLightConfirmation(unittest.IsolatedAsyncioTestCase):
+    async def test_timeout_or_refusal_never_changes_assumed_state(self):
+        for response in (None, {"msg_type": 1, "msg_content": {"code": 8}}):
+            for method in ("async_turn_on", "async_turn_off"):
+                with self.subTest(response=response, method=method):
+                    client = SimpleNamespace(send_command_wait=Mock(return_value=response))
+                    entity = switch.XPengParkingLightsSwitch(coordinator(), client)
+                    entity.async_write_ha_state = Mock()
+                    with self.assertRaises(Error):
+                        await getattr(entity, method)()
+                    self.assertIsNone(entity.is_on)
+                    entity.async_write_ha_state.assert_not_called()
 
 
 _IMPORTS.finish(globals())
