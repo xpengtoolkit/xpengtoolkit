@@ -24,6 +24,9 @@ exact legacy local card URL described below. Turning it off for all vehicles or
 removing the last opted-in vehicle removes the managed resource. For a manual
 installation instead, leave the option off and follow the manual instructions.
 
+Range is shown with up to one decimal place. Tyre pressures use up to two decimals
+for bar and one for other pressure units, preserving the sensor's selected unit.
+
 Integration updates also update the card. Its resource URL contains a hash of
 the shipped JavaScript, so changed files get a fresh browser cache URL. Multiple
 vehicles share one resource; add a separate card for each vehicle.

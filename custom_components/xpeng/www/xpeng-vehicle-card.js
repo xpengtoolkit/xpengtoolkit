@@ -1,6 +1,6 @@
-/* XPENG Vehicle Card v0.1.7 · No dependencies. Uses existing Home Assistant entities. */
+/* XPENG Vehicle Card v0.1.9 · No dependencies. Uses existing Home Assistant entities. */
 (() => {
-  const VERSION = "0.1.8";
+  const VERSION = "0.1.9";
   const ROLES = {
     image: ["image", "vehicle_picture"], battery: ["sensor", "battery"], range: ["sensor", "range"],
     range_type: ["sensor", "range_type"], lock: ["lock", "door_lock"], trunk: ["cover", "trunk"],
@@ -144,9 +144,13 @@
       if (key === "parking_lights" && e?.state === "unknown") return "off";
       return known(e) ? e.state : fallback;
     }
-    _display(key, digits = 0) {
+    _formatState(key, digits = 0) {
       const e = this._entity(key), n = numeric(e?.state);
-      return known(e) ? `${n === null ? e.state : n.toLocaleString(this._hass?.locale?.language, {maximumFractionDigits:digits})}${e.attributes.unit_of_measurement ? " " + e.attributes.unit_of_measurement : ""}` : "—";
+      return known(e) ? (n === null ? e.state : n.toLocaleString(this._hass?.locale?.language, {maximumFractionDigits:digits})) : "—";
+    }
+    _display(key, digits = 0) {
+      const e = this._entity(key);
+      return `${this._formatState(key,digits)}${known(e) && e.attributes.unit_of_measurement ? " " + e.attributes.unit_of_measurement : ""}`;
     }
     _features(key, bit) { return this._available(key) && !!(Number(this._entity(key)?.attributes.supported_features || 0) & bit); }
     _human(key) {
@@ -215,7 +219,7 @@
       const image = this._entity("image")?.attributes.entity_picture;
       const img = image && /^(\/|https?:\/\/)/.test(image) ? (this._hass.hassUrl ? this._hass.hassUrl(image) : image) : null;
       return `<aside class="hero"><div class="top"><div class="brand"><span class="mark" aria-hidden="true">×</span><div><div class="eyebrow">XPENG</div><h2>${esc(this.config.name || "My XPENG")}</h2></div></div><div class="cloud"><i class="dot ${this._state("connected") === "on" ? "" : "offline"}"></i>${this._state("connected") === "on" ? "Cloud connected" : "Cloud offline"}</div></div>
-        <div class="range-row"><div><span class="range-value">${esc(known(range) ? range.state : "—")}<span class="range-unit">${esc(range?.attributes.unit_of_measurement || "km")}</span></span><div class="range-caption">${esc(this._state("range_type", "Estimated"))} range</div></div><div class="battery"><div class="battery-value">${battery === null ? "—" : esc(battery)}<small> %</small></div><div class="battery-track"><div class="battery-fill" style="--level:${Math.max(0,Math.min(100,battery||0))}%"></div></div><span class="muted">Battery</span></div></div>
+        <div class="range-row"><div><span class="range-value">${esc(this._formatState("range",1))}<span class="range-unit">${esc(range?.attributes.unit_of_measurement || "km")}</span></span><div class="range-caption">${esc(this._state("range_type", "Estimated"))} range</div></div><div class="battery"><div class="battery-value">${battery === null ? "—" : esc(battery)}<small> %</small></div><div class="battery-track"><div class="battery-fill" style="--level:${Math.max(0,Math.min(100,battery||0))}%"></div></div><span class="muted">Battery</span></div></div>
         <div class="vehicle">${img ? `<img src="${esc(img)}" alt="${esc(this.config.name || "XPENG vehicle")}" referrerpolicy="no-referrer">` : `<ha-icon class="fallback" icon="mdi:car-side"></ha-icon>`}</div>
         <div class="hero-status"><span class="pill ${locked === "unlocked" ? "warn" : ""}">${icon(locked === "locked" ? "lock-outline" : "lock-open-outline")}${esc(this._human("lock"))}</span>${this._entity("windows") ? `<span class="pill ${this._state("windows") === "open" ? "warn" : ""}">${icon("car-door")}${this._state("windows") === "closed" ? "Windows closed" : this._state("windows") === "open" ? "Windows open / vented" : "Windows " + esc(this._human("windows").toLowerCase())}</span>` : ""}${this._entity("climate") ? `<span class="pill">${icon("thermometer")}${esc(this._display("cabin"))} inside</span>` : ""}</div>
         <div class="hero-bottom"><span>Vehicle snapshot</span><span>${esc(this._age(this._entity("updated")?.state))}</span></div></aside>`;
@@ -343,7 +347,7 @@
     }
     _statusRow(key,label,map) {if(!this._entity(key))return "";return `<div class="row"><span>${esc(label)}</span><span class="state">${esc(map?map[this._state(key)]||"Unknown":this._display(key,1))}</span></div>`;}
     _status() {
-      return `<div class="section-head"><h3>Vehicle status</h3><span class="muted">${esc(this._display("odometer"))}</span></div><div class="panel status-list">${this._statusRow("lock","Door lock",{locked:"Locked",unlocked:"Unlocked"})}${[["driver_door","Driver door"],["passenger_door","Passenger door"],["rear_left_door","Rear left door"],["rear_right_door","Rear right door"],["bonnet","Bonnet"]].map(([k,l])=>this._statusRow(k,l,{on:"Open",off:"Closed"})).join("")}${this._statusRow("trunk","Trunk")}${this._statusRow("windows","Windows")}${this._statusRow("cabin","Cabin temperature")}${this._statusRow("outside","Outside temperature")}</div><div class="section-head"><h3>Tyre pressures</h3><span class="muted">Latest reported</span></div><div class="tyres">${[["tyre_fl","Front left"],["tyre_fr","Front right"],["tyre_rl","Rear left"],["tyre_rr","Rear right"]].filter(([k])=>this._entity(k)).map(([k,l])=>`<div class="tyre"><small>${l}</small><strong>${esc(this._display(k))}</strong></div>`).join("")}</div><div class="panel status-list" style="margin-top:12px">${this._statusRow("software","Software")}<div class="row"><span>Vehicle snapshot</span><span class="state">${esc(this._age(this._entity("updated")?.state))}</span></div></div><div class="inline-actions">${this._entity("wake")?this._btn("Wake vehicle","power",this._action("wake","button.press",{},"Wake vehicle",true),{small:true}):""}</div>`;
+      return `<div class="section-head"><h3>Vehicle status</h3><span class="muted">${esc(this._display("odometer"))}</span></div><div class="panel status-list">${this._statusRow("lock","Door lock",{locked:"Locked",unlocked:"Unlocked"})}${[["driver_door","Driver door"],["passenger_door","Passenger door"],["rear_left_door","Rear left door"],["rear_right_door","Rear right door"],["bonnet","Bonnet"]].map(([k,l])=>this._statusRow(k,l,{on:"Open",off:"Closed"})).join("")}${this._statusRow("trunk","Trunk")}${this._statusRow("windows","Windows")}${this._statusRow("cabin","Cabin temperature")}${this._statusRow("outside","Outside temperature")}</div><div class="section-head"><h3>Tyre pressures</h3><span class="muted">Latest reported</span></div><div class="tyres">${[["tyre_fl","Front left"],["tyre_fr","Front right"],["tyre_rl","Rear left"],["tyre_rr","Rear right"]].filter(([k])=>this._entity(k)).map(([k,l])=>`<div class="tyre"><small>${l}</small><strong>${esc(this._display(k,this._entity(k)?.attributes.unit_of_measurement === "bar" ? 2 : 1))}</strong></div>`).join("")}</div><div class="panel status-list" style="margin-top:12px">${this._statusRow("software","Software")}<div class="row"><span>Vehicle snapshot</span><span class="state">${esc(this._age(this._entity("updated")?.state))}</span></div></div><div class="inline-actions">${this._entity("wake")?this._btn("Wake vehicle","power",this._action("wake","button.press",{},"Wake vehicle",true),{small:true}):""}</div>`;
     }
     _render() {
       if (!this.config||!this._hass) return;

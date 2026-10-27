@@ -193,5 +193,41 @@ async function test(name,fn) {await fn();passed++;console.log(`PASS ${name}`);}
     card._entity("climate").attributes.preset_mode=null;card._render();assert.equal(action().length,2);
     card._entity("climate").attributes.supported_features=0;await card._send(action()[0]);assert.equal(calls.length,2);
   });
+  await test("hero range rounds floating-point telemetry to one decimal",()=>{
+    const {card,hass,put,calls}=setup();hass.locale={language:"en-US"};
+    for(const [value,expected] of [[436.100006103516,"436.1"],[436.96,"437"],[439,"439"],[0,"0"]]){
+      put("sensor","range",value,{unit_of_measurement:"km"});card._render();
+      assert.ok(card.shadowRoot.innerHTML.includes(`class="range-value">${expected}<span class="range-unit">km`));
+    }
+    put("sensor","range",271.12345,{unit_of_measurement:"mi"});card._render();
+    assert.ok(card.shadowRoot.innerHTML.includes('class="range-value">271.1<span class="range-unit">mi'));
+    assert.equal(calls.length,0);
+  });
+  await test("tyre pressure retains useful decimals in each selected unit",()=>{
+    const {card,hass,put,calls}=setup();hass.locale={language:"en-US"};card._tab="status";
+    for(const [unit,value,expected] of [["bar",2.34,"2.34 bar"],["bar",2.4,"2.4 bar"],["bar",0,"0 bar"],["psi",33.356,"33.4 psi"],["kPa",235.67,"235.7 kPa"]]){
+      for(const wheel of ["front_left","front_right","rear_left","rear_right"])put("sensor",`tyre_pressure_${wheel}`,value,{unit_of_measurement:unit});
+      card._render();assert.equal(card.shadowRoot.innerHTML.split(`<strong>${expected}</strong>`).length-1,4);
+    }
+    assert.equal(calls.length,0);
+  });
+  await test("range and tyre decimals follow the language locale",()=>{
+    const {card,hass,put}=setup();hass.locale={language:"de-DE"};card._tab="status";
+    put("sensor","range",436.100006103516,{unit_of_measurement:"km"});
+    put("sensor","tyre_pressure_front_left",2.345,{unit_of_measurement:"bar"});card._render();
+    assert.ok(card.shadowRoot.innerHTML.includes('class="range-value">436,1<span'));
+    assert.ok(card.shadowRoot.innerHTML.includes('<strong>2,35 bar</strong>'));
+  });
+  await test("unknown unavailable and missing readings stay unknown",()=>{
+    const {card,hass,put}=setup();card._tab="status";
+    for(const value of ["unknown","unavailable",""]){
+      put("sensor","range",value,{unit_of_measurement:"km"});
+      put("sensor","tyre_pressure_front_left",value,{unit_of_measurement:"bar"});card._render();
+      assert.ok(card.shadowRoot.innerHTML.includes('class="range-value">—<span'));
+      assert.ok(card.shadowRoot.innerHTML.includes('<strong>—</strong>'));
+    }
+    delete hass.states["sensor.xpeng_test_range"];card._render();
+    assert.ok(card.shadowRoot.innerHTML.includes('class="range-value">—<span'));
+  });
   console.log(`${passed} tests passed. No network calls were made.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});
