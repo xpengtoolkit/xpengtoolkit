@@ -422,7 +422,7 @@ def _tokens_device_id(tokens: dict | None) -> str:
         return parts[3].strip()
     return ""
 
-def _resolve_configured_device_id(
+async def _async_resolve_configured_device_id(
     hass: HomeAssistant,
     entry: ConfigEntry,
     tenant_file: str,
@@ -450,7 +450,12 @@ def _resolve_configured_device_id(
     logged but not fatal: setup still proceeds, and the REST path raises its own
     actionable error when it needs the id.
     """
-    tenants = _available_tenants(entry, tenant_file)
+    # File loading (including reads/deserialization) must finish off the loop.
+    # Entry persistence below must stay on the loop: async_update_entry is not
+    # thread-safe, so offloading this entire resolver would be wrong.
+    tenants = await hass.async_add_executor_job(
+        _available_tenants, entry, tenant_file
+    )
 
     if configured_device_id:
         _warn_on_device_id_mismatch(entry, configured_device_id, tenants)
@@ -469,11 +474,14 @@ def _resolve_configured_device_id(
 
         if not configured_device_id:
             token_file = entry.options.get(CONF_TOKEN_FILE, "").strip()
-            if token_file and os.path.isfile(token_file):
+            if token_file:
                 try:
-                    configured_device_id = _tokens_device_id(
-                        load_login_tokens(token_file)
+                    tokens = await hass.async_add_executor_job(
+                        load_login_tokens, token_file
                     )
+                    configured_device_id = _tokens_device_id(tokens)
+                except FileNotFoundError:
+                    pass
                 except Exception:  # noqa: BLE001 - a bad token file is not fatal
                     _LOGGER.debug(
                         "Could not read a device id from %s",
@@ -890,7 +898,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Resolve this install's device identity once and keep it in the entry
     # options, so every restart and reload signs as the same device.
-    configured_device_id = _resolve_configured_device_id(
+    configured_device_id = await _async_resolve_configured_device_id(
         hass, entry, tenant_file, configured_device_id
     )
 
@@ -1667,16 +1675,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             pending_escalation = should_escalate(
                 stale, watchdog_state["last_escalation"], time.time()
             )
-            # A car that was moving when the data stopped cannot be woken by a
-            # force-upload, so motion evidence takes this decision out of the
-            # 12 h sleeping-car budget. Issue #3, 2026-10-21: 16 refusals on
-            # that budget while the car was being driven, and 46 minutes of
+            # Last-known motion permits one bounded recovery attempt outside
+            # the 12 h sleeping-car budget. It does not prove the car is still
+            # moving after the stream has gone quiet. Issue #3, 2026-10-21:
+            # 16 refusals on that budget while driving, and 46 minutes of
             # frozen telemetry. See watchdog_policy.should_escalate_moving.
+            motion_evidence_at = coordinator.last_motion_at
             motion_escalation = should_escalate_moving(
                 stale,
                 watchdog_state["last_escalation"],
                 time.time(),
-                coordinator.last_motion_at,
+                motion_evidence_at,
             )
             escalation_allowed = pending_escalation or motion_escalation
             escalated_now = poll_status.is_escalated(
@@ -1766,10 +1775,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 silence, since_last,
             )
         else:
-            _LOGGER.warning(
-                "Watchdog: %.0fs without any vehicle-state message — forcing "
-                "reconnect (likely cloud-side stuck session-routing)",
-                silence,
+            # A quiet parked car is expected; absence of messages alone does
+            # not establish a cloud routing fault. Keep active/unknown states
+            # visible at WARNING and leave disconnected recovery above alone.
+            last_reported_state = (
+                "charging" if coordinator.is_charging else
+                "parked" if coordinator.vehicle_parked is True else
+                "moving" if coordinator.vehicle_parked is False else "unknown"
+            )
+            log_reconnect = (
+                _LOGGER.info if last_reported_state == "parked" else _LOGGER.warning
+            )
+            log_reconnect(
+                "Watchdog: %.0fs without a vehicle-state message "
+                "(last reported state: %s) — reconnecting and sending a passive query",
+                silence, last_reported_state,
             )
             watchdog_state["last_reconnect"] = time.time()
             # Mint before tearing down. The resubscribe is what unsticks the
@@ -1836,23 +1856,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     ),
                 )
             return
-        if motion_escalation:
-            _LOGGER.warning(
-                "Watchdog: %.0fmin without data and the last accepted state said "
-                "the car was moving (%.0fmin before the silence) — sending ONE "
-                "force-upload, which cannot wake a moving car (motion evidence "
-                "escapes the %.0fh sleeping-car budget)",
-                stale / 60,
-                (now_ts - coordinator.last_motion_at) / 60,
-                ESCALATE_BACKOFF_SECONDS / 3600,
-            )
-        else:
-            _LOGGER.warning(
-                "Watchdog: %.0fmin without data (state topic quiet %.0fs) and "
-                "reconnect+passive query has not restored it — sending ONE "
-                "force-upload (this wakes the car; at most one per %.0fh)",
-                stale / 60, silence, ESCALATE_BACKOFF_SECONDS / 3600,
-            )
         watchdog_state["last_escalation"] = now_ts
         watchdog_state["escalations"] += 1
         # Written before the send, and independent of it: the backoff exists to
@@ -1869,6 +1872,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         try:
             if coordinator.command_policy.can_wake():
+                if motion_escalation:
+                    _LOGGER.warning(
+                        "Watchdog: %.0fmin without fresh vehicle data; motion "
+                        "evidence %.0fmin old, current motion is unconfirmed — "
+                        "sending ONE force-upload (may wake the car; bounded "
+                        "motion recovery outside the %.0fh parked-car budget)",
+                        stale / 60,
+                        (now_ts - motion_evidence_at) / 60,
+                        ESCALATE_BACKOFF_SECONDS / 3600,
+                    )
+                else:
+                    _LOGGER.warning(
+                        "Watchdog: %.0fmin without fresh vehicle data (state "
+                        "topic quiet %.0fs) — sending ONE force-upload "
+                        "(may wake the car; at most one per %.0fh without new "
+                        "motion evidence)",
+                        stale / 60, silence, ESCALATE_BACKOFF_SECONDS / 3600,
+                    )
                 await hass.async_add_executor_job(
                     mqtt_client.send_command, vin, 19, {"cmd_type": 2}, 2
                 )
@@ -1878,8 +1899,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # is still worth sending, because a car that is awake answers
                 # it, and that is the case the escalation is usually meeting.
                 _LOGGER.info(
-                    "Watchdog escalation limited to a passive query: waking is "
-                    "disabled by this integration's command permissions"
+                    "Watchdog: %.0fmin without fresh vehicle data (state topic "
+                    "quiet %.0fs); waking is disabled — sending a passive query",
+                    stale / 60, silence,
                 )
                 await hass.async_add_executor_job(mqtt_client.send_query, vin)
         except Exception:

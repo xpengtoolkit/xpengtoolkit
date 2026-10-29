@@ -228,6 +228,14 @@ behind issue #3 on 2026-10-23 was 426 minutes without meaningful data while the
 REST odometer advanced 67 km. A `Standby` vehicle mode is not movement: the car
 is parked, so the sleeping-car budget still applies.
 
+A reconnect while the last reported state is parked is logged at INFO: quiet
+telemetry alone does not establish a cloud routing fault. Active, unknown and
+disconnected recovery still warns. The escalation log distinguishes time since
+fresh vehicle data from time since any state-topic message; a stub can reset the
+second clock without updating measurements. Older motion evidence is reported
+with its age, not as confirmation that the car is still moving. Wake permissions
+and the existing recovery limits still apply.
+
 ### Credentials rotate, and the identity is per-install
 
 The MQTT password is short-lived (about 60-90 s). It is **minted on demand**:
