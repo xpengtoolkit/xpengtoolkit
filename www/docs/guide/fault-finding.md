@@ -166,9 +166,11 @@ that line names it.
 
 Read these in order:
 
-1. **`/config/xpeng-renew-last-run.log`** — the renewal app records the whole
+1. **`/config/xpeng-secrets-last-run.log`** — the renewal app records the whole
    onboarding run, every step, plus whatever the browser or the API said, rewritten
-   on every run. It is the first place to look, and it describes the account's login
+   on every run. It sits next to the app's `pair_dir` (the second slot writes
+   `/config/xpeng-secrets-2-last-run.log`). It is the first place to look, and it
+   describes the account's login
    attempts, so treat it as sensitive.
 2. **`GET http://<your-ha-host>:8090/healthz`** — renewals, failures and the last
    outcome, including what `xpeng.import_credentials` returned.

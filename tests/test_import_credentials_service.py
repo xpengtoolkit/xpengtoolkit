@@ -278,5 +278,76 @@ class StampParsingTests(unittest.TestCase):
             self.assertIsNone(fake.last_renewal, f"{value!r} should read as unknown")
 
 
+class VinGuardTests(unittest.TestCase):
+    """A pair for another car must not be installed into this entry (issue #11).
+
+    The two-install failure this stops: a renewal app with the other car's
+    `pair_dir` (or the wrong `entry_id`) imported a G9 pair into the X9 entry.
+    The entry kept its own VIN, title and entity ids while carrying the other
+    account's tokens, client id and device id, so the account sensor and
+    `credentials_valid` started reporting the other car — and the response still
+    looked right, because the VIN is read from the entry first.
+    """
+
+    @staticmethod
+    def _fn():
+        import textwrap
+
+        start = SOURCE.index("def _vin_check(")
+        end = SOURCE.index("\ndef _identity_moved(")
+        namespace: dict = {}
+        exec(
+            compile(
+                textwrap.dedent(SOURCE[start:end]),
+                "<credential_import>",
+                "exec",
+            ),
+            namespace,
+        )
+        return namespace["_vin_check"]
+
+    def test_the_same_vin_in_any_case_is_not_a_mismatch(self):
+        check = self._fn()
+        self.assertIsNone(check("l1nnsgha1sb000001", "L1NNSGHA1SB000001"))
+
+    def test_a_pair_for_another_car_names_both_vins(self):
+        check = self._fn()
+        self.assertEqual(
+            check("L1NNSGHA1SB000001", "OTHER123456789012"),
+            ("OTHER123456789012", "L1NNSGHA1SB000001"),
+        )
+
+    def test_a_pair_without_a_vin_is_not_refused(self):
+        # An older capture carries no VIN; refusing it would break upgrades.
+        check = self._fn()
+        self.assertIsNone(check("L1NNSGHA1SB000001", ""))
+        self.assertIsNone(check("", ""))
+
+    def test_an_entry_without_a_vin_adopts_the_pair_vin(self):
+        # Entries created before the field existed must keep working.
+        check = self._fn()
+        self.assertIsNone(check("", "L1NNSGHA1SB000001"))
+
+    def test_the_caller_declared_vin_is_checked_too(self):
+        check = self._fn()
+        self.assertEqual(
+            check("", "OTHER123456789012", "L1NNSGHA1SB000001"),
+            ("OTHER123456789012", "L1NNSGHA1SB000001"),
+        )
+        self.assertIsNone(
+            check("", "L1NNSGHA1SB000001", "l1nnsgha1sb000001")
+        )
+
+    def test_the_import_checks_before_it_mints(self):
+        """A mismatch must not spend an API call or touch the entry."""
+        self.assertIn("_vin_check(", SOURCE)
+        self.assertIn('"vin_mismatch"', SOURCE)
+        self.assertLess(
+            SOURCE.index("_vin_check("),
+            SOURCE.index("_import_mqtt_credentials(tokens, tenant)"),
+            "the guard has to run before the minting/import work",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

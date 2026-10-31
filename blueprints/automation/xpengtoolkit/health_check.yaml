@@ -97,7 +97,7 @@ variables:
     {% elif trigger.id == 'polling' %}
       XPENG polling is stuck on {{ states(polling) }} for {{ polling_minutes }} minutes.
     {% elif trigger.id == 'renewal' %}
-      The XPENG credential renewal app has failed twice in a row. Its log is /config/xpeng-renew-last-run.log.
+      The XPENG credential renewal app has failed twice in a row. Its log is /config/xpeng-secrets-last-run.log (next to the app's pair_dir).
     {% else %}
       XPENG health recovered: credentials are {{ states(credentials) }}.
     {% endif %}

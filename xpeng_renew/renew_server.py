@@ -239,9 +239,14 @@ def _tail(primary: str, secondary: str = "", lines: int = 4, limit: int = 400) -
 
 
 def _run_log_path() -> str:
-    """Where the last run's full output is kept."""
-    parent = os.path.dirname(PAIR_DIR.rstrip("/")) or "/config"
-    return os.path.join(parent, "xpeng-renew-last-run.log")
+    """Where the last run's full output is kept: beside this slot's pair dir.
+
+    Both app slots map ``/config``, so a fixed filename had the second car's run
+    overwrite the first car's log — and the log is the evidence a failed renewal
+    leaves. Deriving it from ``pair_dir`` gives every slot its own file without
+    another option to configure (issue #11).
+    """
+    return PAIR_DIR.rstrip("/") + "-last-run.log"
 
 
 def _write_run_log(stdout: str, stderr: str) -> None:
@@ -251,11 +256,11 @@ def _write_run_log(stdout: str, stderr: str) -> None:
     browser failure is long: Playwright prints the failing line, then a boxed
     hint. Chasing Chromium through truncated summaries cost several releases,
     so every run leaves its full output here instead. Written next to the pair
-    the add-on publishes, which is inside the mapped config directory.
+    directory the add-on publishes, which is inside the mapped config directory.
     """
     path = _run_log_path()
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(
                 "# Full output of the onboarding tool from the last renewal.\n"

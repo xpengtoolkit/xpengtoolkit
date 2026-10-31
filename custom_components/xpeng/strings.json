@@ -129,7 +129,8 @@
       "invalid_tenant_json": "That is not valid JSON, so it cannot be the xpeng_tenant.json the onboarding tool wrote. Paste the whole file exactly as the tool saved it.",
       "invalid_tenant": "The tenant data is missing something required: it must contain deviceId and a non-empty keys pool, and every key must be base64 in the format the onboarding tool writes. Re-run the onboarding tool and use the tenant file from that same run - the tokens and tenant are a matched pair.",
       "invalid_tenant_path": "Could not read that xpeng_tenant.json path on the Home Assistant host. Check the path, or paste the file contents instead.",
-      "invalid_vin": "The token file carries no VIN, and none was entered. Enter the 17-character VIN of the vehicle these tokens belong to."
+      "invalid_vin": "The token file carries no VIN, and none was entered. Enter the 17-character VIN of the vehicle these tokens belong to.",
+      "vin_mismatch": "The token pair belongs to a different vehicle than this config entry. Import it into the entry for the pair's VIN instead."
     },
     "abort": {
       "already_configured": "This vehicle is already configured",

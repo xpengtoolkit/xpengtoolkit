@@ -741,8 +741,9 @@ every renewal and kept in the config entry, so it survives a restart and can go 
 on a dashboard.
 
 `GET http://<your-ha-host>:8090/healthz` reports the counters, when the next renewal
-is due and the last outcome; `/config/xpeng-renew-last-run.log` has the whole of the
-last attempt. To force one now:
+is due and the last outcome; `/config/xpeng-secrets-last-run.log` (next to the app's
+`pair_dir`, so the second slot writes `/config/xpeng-secrets-2-last-run.log`) has the
+whole of the last attempt. To force one now:
 
 ```bash
 curl -X POST -H "Authorization: Bearer <renew_token>" http://<your-ha-host>:8090/renew
@@ -1000,7 +1001,8 @@ charging does not happen - if one appears, that line names it.
 ### Nothing is updating, and the log does not say why
 
 - **The renewal app records the whole onboarding run** - every step, plus whatever
-  the browser or the API said - in `/config/xpeng-renew-last-run.log`, rewritten on
+  the browser or the API said - in `<pair_dir>-last-run.log`
+  (`/config/xpeng-secrets-last-run.log` for the first slot), rewritten on
   every run. It is the first place to look, and it describes the account's login
   attempts, so treat it as sensitive.
 - **`GET http://<your-ha-host>:8090/healthz`** reports renewals, failures and the

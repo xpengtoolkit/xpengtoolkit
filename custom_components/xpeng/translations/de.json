@@ -129,7 +129,8 @@
       "invalid_tenant_json": "Das ist kein gültiges JSON und kann daher nicht die xpeng_tenant.json sein, die das Onboarding-Tool geschrieben hat. Füge die ganze Datei genau so ein, wie das Tool sie gespeichert hat.",
       "invalid_tenant": "In den Tenant-Daten fehlt etwas Erforderliches: Sie müssen deviceId und einen nicht leeren Keys-Pool enthalten, und jeder Schlüssel muss Base64 in dem Format sein, das das Onboarding-Tool schreibt. Führe das Onboarding-Tool erneut aus und verwende die Tenant-Datei aus demselben Lauf - Tokens und Tenant gehören zusammen.",
       "invalid_tenant_path": "Der Pfad zur xpeng_tenant.json konnte auf dem Home-Assistant-Host nicht gelesen werden. Prüfe den Pfad oder füge stattdessen den Dateiinhalt ein.",
-      "invalid_vin": "Die Token-Datei enthält keine VIN, und es wurde keine eingegeben. Gib die 17-stellige VIN des Fahrzeugs ein, zu dem diese Tokens gehören."
+      "invalid_vin": "Die Token-Datei enthält keine VIN, und es wurde keine eingegeben. Gib die 17-stellige VIN des Fahrzeugs ein, zu dem diese Tokens gehören.",
+      "vin_mismatch": "Das Token-Paar gehört zu einem anderen Fahrzeug als dieser Eintrag. Importiere es stattdessen in den Eintrag der VIN des Paars."
     },
     "abort": {
       "already_configured": "Dieses Fahrzeug ist bereits konfiguriert",

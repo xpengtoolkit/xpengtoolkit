@@ -129,7 +129,8 @@
       "invalid_tenant_json": "Ce n'est pas du JSON valide, ce ne peut donc pas être le xpeng_tenant.json qu'a écrit l'outil d'onboarding. Collez le fichier entier exactement tel que l'outil l'a enregistré.",
       "invalid_tenant": "Il manque quelque chose d'obligatoire dans les données de tenant\u00a0: elles doivent contenir deviceId et un pool de clés non vide, et chaque clé doit être en base64 au format écrit par l'outil d'onboarding. Réexécutez l'outil d'onboarding et utilisez le fichier de tenant de cette même exécution — les jetons et le tenant forment une paire assortie.",
       "invalid_tenant_path": "Impossible de lire ce chemin xpeng_tenant.json sur l'hôte Home Assistant. Vérifiez le chemin, ou collez plutôt le contenu du fichier.",
-      "invalid_vin": "Le fichier de jetons ne contient aucun VIN et aucun n'a été saisi. Saisissez le VIN à 17 caractères du véhicule auquel ces jetons appartiennent."
+      "invalid_vin": "Le fichier de jetons ne contient aucun VIN et aucun n'a été saisi. Saisissez le VIN à 17 caractères du véhicule auquel ces jetons appartiennent.",
+      "vin_mismatch": "La paire de jetons appartient à un autre véhicule que cette entrée. Importez-la dans l'entrée correspondant au VIN de la paire."
     },
     "abort": {
       "already_configured": "Ce véhicule est déjà configuré",

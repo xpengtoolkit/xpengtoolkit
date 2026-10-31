@@ -67,6 +67,31 @@ IMPORT_CREDENTIALS_SCHEMA = vol.Schema(
 )
 
 
+def _vin_check(
+    entry_vin: str, pair_vin: str, caller_vin: str = ""
+) -> tuple[str, str] | None:
+    """The ``(pair, target)`` VINs when this pair belongs to another car, else None.
+
+    An import names its target entry and the pair names its car, and nothing used
+    to compare the two: a pair from car B imported into car A's entry overwrote
+    A's tokens, account, client id and device id, while every response still
+    reported A's VIN because the VIN is resolved from the entry first. That is
+    how a two-entry install ended up with one account on the other entry's
+    entities (issue #11).
+
+    A pair with no readable VIN (an older capture) and an entry with none (created
+    before the field existed) are not a mismatch; those keep the old fallbacks.
+    """
+    entry_vin = str(entry_vin or "").strip().upper()
+    pair_vin = str(pair_vin or "").strip().upper()
+    caller_vin = str(caller_vin or "").strip().upper()
+    if pair_vin and entry_vin and pair_vin != entry_vin:
+        return pair_vin, entry_vin
+    if pair_vin and caller_vin and pair_vin != caller_vin:
+        return pair_vin, caller_vin
+    return None
+
+
 def _identity_moved(entry: Any, resolved_vin: str, device_id: str) -> bool:
     """True when this pair describes a different car than the entry already holds.
 
@@ -169,6 +194,22 @@ async def async_import_credentials(
 
     tokens = _tokens_from_text(tokens_text)
     tenant = _tenant_from_text(tenant_text)
+    # Which car this pair is actually for. The entry is the import target, but
+    # the pair decides the car (issue #11: the two used to be allowed to
+    # disagree, and the entry kept its own VIN while taking the other car's
+    # credentials). Checked before the mint, because a mismatched pair must not
+    # spend an API call - nor be applied anywhere.
+    mismatch = _vin_check(
+        str(entry.data.get(CONF_VIN) or ""),
+        _vin_from_tokens(tokens),
+        vin,
+    )
+    if mismatch is not None:
+        pair_vin, target_vin = mismatch
+        raise _TokenImportError(
+            "vin_mismatch",
+            f"the pair is for VIN {pair_vin} but the import target is VIN {target_vin}",
+        )
     # Mints MQTT credentials against the live API: this is what proves the pair is
     # current and belongs together, so a stale file cannot silently replace a
     # working one.

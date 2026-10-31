@@ -129,7 +129,8 @@
       "invalid_tenant_json": "Det där är inte giltig JSON, så det kan inte vara den xpeng_tenant.json som onboardingverktyget skrev. Klistra in hela filen precis som verktyget sparade den.",
       "invalid_tenant": "Tenantdatan saknar något som krävs: den måste innehålla deviceId och en keys-pool som inte är tom, och varje nyckel måste vara base64 i det format som onboardingverktyget skriver. Kör onboardingverktyget igen och använd tenantfilen från samma körning – tokens och tenant hör ihop som ett par.",
       "invalid_tenant_path": "Det gick inte att läsa xpeng_tenant.json från den sökvägen på Home Assistant-värden. Kontrollera sökvägen, eller klistra in filinnehållet i stället.",
-      "invalid_vin": "Tokenfilen innehåller inget VIN, och inget angavs. Ange det 17 tecken långa VIN:t för det fordon som tokens tillhör."
+      "invalid_vin": "Tokenfilen innehåller inget VIN, och inget angavs. Ange det 17 tecken långa VIN:t för det fordon som tokens tillhör.",
+      "vin_mismatch": "Tokenparet tillhör ett annat fordon än den här posten. Importera det till posten för parets VIN i stället."
     },
     "abort": {
       "already_configured": "Det här fordonet är redan konfigurerat",

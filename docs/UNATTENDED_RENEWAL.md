@@ -147,7 +147,9 @@ installs.
   the app only calls that service when an entry already exists, so this means the entry
   disappeared between the check and the call. Run it again.
 
-The whole attempt is written to `/config/xpeng-renew-last-run.log`.
+The whole attempt is written to `<pair_dir>-last-run.log` next to the app's
+`pair_dir` - `/config/xpeng-secrets-last-run.log` for the first slot,
+`/config/xpeng-secrets-2-last-run.log` for the second.
 
 The app itself needs permission to call that service; it asks for
 `homeassistant_api` in its own config, which is what makes the import (and its
@@ -398,8 +400,10 @@ Ruled out by measurement, so it is not worth re-treading:
 
 Read these in order:
 
-1. **`/config/xpeng-renew-last-run.log`** — the complete output of the last
-   renewal, written by the app on every run. It contains the tool's own progress
+1. **`/config/xpeng-secrets-last-run.log`** — the complete output of the last
+   renewal, written by the app on every run (it sits next to the app's `pair_dir`,
+   so the second slot writes `/config/xpeng-secrets-2-last-run.log`). It contains
+   the tool's own progress
    lines and whatever the browser or the API said, so it is usually the whole
    answer. Treat it as sensitive: it describes the account's login attempts.
 2. **`GET http://<your-ha-host>:8090/healthz`** — renewals, failures, consecutive

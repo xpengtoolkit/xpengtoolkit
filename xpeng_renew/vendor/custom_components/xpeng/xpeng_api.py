@@ -897,14 +897,20 @@ def _cfg_with_tenant_identity(
     `12010104 Login status expired` — the same error as genuinely dead tokens.
 
     An explicit ConfiguredDeviceId/LoginDeviceId still wins, which is what the
-    onboarding tool relies on before a tenant even exists.
+    onboarding tool relies on before a tenant even exists. The *process-wide*
+    override does NOT win: it is just whichever entry was set up last, so with two
+    config entries honouring it made one car's requests sign as the other car's
+    device — every call answered 12010104 and the two entries fought (issue #11).
+    The tenant is the identity the pair was actually sealed with.
     """
     device_id = _device_id_from_tenant(tenant)
     if not device_id:
         return cfg
-    for key in ("ConfiguredDeviceId", "LoginDeviceId"):
-        if str(cfg.get(key, "") or "").strip():
-            return cfg
+    explicit = str(cfg.get("ConfiguredDeviceId", "") or "").strip()
+    if explicit and explicit != _CONFIGURED_DEVICE_ID_OVERRIDE:
+        return cfg
+    if str(cfg.get("LoginDeviceId", "") or "").strip():
+        return cfg
     merged = dict(cfg)
     merged["ConfiguredDeviceId"] = device_id
     return merged

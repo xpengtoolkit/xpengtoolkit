@@ -116,5 +116,53 @@ class SlotsTest(unittest.TestCase):
             self.assertFalse((SECOND_DIR / name).exists(), name)
 
 
+class RunLogTest(unittest.TestCase):
+    """Each slot keeps its own last-run log (issue #11).
+
+    Both slots map ``/config``, and the log used to be one fixed filename, so a
+    renewal in the second slot overwrote the first slot's evidence. That log is
+    the only record of why a login failed, so it has to follow ``pair_dir``.
+    """
+
+    @staticmethod
+    def _server():
+        import importlib.util
+
+        path = FIRST_DIR / "renew_server.py"
+        spec = importlib.util.spec_from_file_location(
+            "xpeng_renew_server_under_test", path
+        )
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except ImportError as exc:  # pragma: no cover - add-on-only dependency
+            raise unittest.SkipTest(f"renew_server.py could not be imported: {exc}")
+        return module
+
+    def test_the_log_path_follows_the_pair_dir(self):
+        server = self._server()
+        original = server.PAIR_DIR
+        try:
+            server.PAIR_DIR = "/config/xpeng-secrets"
+            first = server._run_log_path()
+            server.PAIR_DIR = "/config/xpeng-secrets-2"
+            second = server._run_log_path()
+        finally:
+            server.PAIR_DIR = original
+        self.assertNotEqual(first, second)
+        self.assertTrue(first.endswith("xpeng-secrets-last-run.log"), first)
+        self.assertTrue(second.endswith("xpeng-secrets-2-last-run.log"), second)
+
+    def test_it_is_not_the_old_shared_filename(self):
+        server = self._server()
+        original = server.PAIR_DIR
+        try:
+            server.PAIR_DIR = "/config/xpeng-secrets"
+            path = server._run_log_path()
+        finally:
+            server.PAIR_DIR = original
+        self.assertNotEqual(path, "/config/xpeng-renew-last-run.log")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

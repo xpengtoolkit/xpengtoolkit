@@ -165,9 +165,11 @@ create the entry answers
 `{"ok": true, "bootstrapped": "<VIN>", "onboarding": "...", "ms": ...}` instead,
 where `bootstrapped` is the VIN the entry was created with.
 
-Every attempt is also written in full to `/config/xpeng-renew-last-run.log`,
-including whatever the browser and the API said. It describes the account's login
-attempts, so treat it as sensitive.
+Every attempt is also written in full to `<pair_dir>-last-run.log` next to the pair
+directory (`/config/xpeng-secrets-last-run.log` by default, and
+`/config/xpeng-secrets-2-last-run.log` for the second slot), including whatever the
+browser and the API said. It describes the account's login attempts, so treat it as
+sensitive.
 
 ## XPENG slider solver
 
@@ -284,7 +286,8 @@ chmod 700 /config/xpeng-secrets
 The directory holds a live token/tenant pair, readable by the Core process. Keep
 it under `/config` (so the config flow can read it), out of any share, and out of
 any backup that leaves the house unencrypted. The same applies to the app's
-`/config/xpeng-renew-last-run.log`, which records the login attempts.
+`<pair_dir>-last-run.log` (next to that directory, e.g.
+`/config/xpeng-secrets-last-run.log`), which records the login attempts.
 
 ## `/healthz`
 

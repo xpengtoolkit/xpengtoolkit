@@ -42,7 +42,7 @@ in [`.cursor/rules/publish-identity.mdc`](.cursor/rules/publish-identity.mdc).
   offer the update forever.
 - Translations: `translations/en.json` is the runtime source of truth and
   `strings.json` the reviewed copy; a test keeps them identical. Every other
-  `translations/<lang>.json` must carry the same 342 keys - run
+  `translations/<lang>.json` must carry the same 343 keys - run
   `python3 tools/check_translations.py` after touching any of them, and
   `python3 tests/test_translations.py` (also part of the normal suite). Rules and
   the language list: `docs/TRANSLATIONS.md`.

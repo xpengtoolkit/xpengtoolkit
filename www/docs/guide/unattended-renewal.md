@@ -137,7 +137,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Image tags are the app versions (`:0.1.22`, ...); `:latest` tracks the newest.
+Image tags are the app versions (`:0.1.23`, ...); `:latest` tracks the newest.
 Building from source still works if you would rather not pull a registry image:
 
 ```bash
@@ -244,7 +244,9 @@ installs.
 | `could not start the config flow` / `the entry was not created` | The response names the step that refused. The usual cause is `pair_dir` not being under `/config`: the flow reads those paths **inside the Home Assistant container**, which cannot see the app's own filesystem. |
 | `import_credentials returned 400: No XPENG config entry to import credentials into` | The app only calls that service when an entry already exists, so this means the entry disappeared between the check and the call. Run it again. |
 
-The whole attempt is written to `/config/xpeng-renew-last-run.log`.
+The whole attempt is written to `<pair_dir>-last-run.log` next to the app's
+`pair_dir` - `/config/xpeng-secrets-last-run.log` for the first slot,
+`/config/xpeng-secrets-2-last-run.log` for the second.
 
 The app needs permission to call that service; it asks for `homeassistant_api` in
 its own config, which is what makes the import and its failure notifications

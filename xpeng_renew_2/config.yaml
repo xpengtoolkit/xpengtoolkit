@@ -12,7 +12,7 @@
 # tests/test_addon_slots.py keeps version, options and schema in step with
 # xpeng_renew/config.yaml.
 name: XPENG credential renewal (2nd car)
-version: "0.1.22"
+version: "0.1.23"
 slug: xpeng_renew_2
 description: >-
   A second instance of XPENG credential renewal, for a second car on its own XPENG
