@@ -114,7 +114,7 @@ class ChargePortControlsOption(unittest.TestCase):
 
     def test_the_services_refuse_when_it_is_off(self):
         self.assertIn("from .charge_port import controls_enabled", SERVICES)
-        self.assertIn("def _charge_port_controls_enabled(hass", SERVICES)
+        self.assertIn("def _charge_port_controls_enabled(entry_data", SERVICES)
         self.assertEqual(
             SERVICES.count('translation_key="charge_port_control_disabled"'), 2,
             "both charge-port services must refuse with the same message",

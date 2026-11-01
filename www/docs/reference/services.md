@@ -1,10 +1,11 @@
 # Services
 
 The integration exposes global `xpeng.*` services and native entity services.
-Global commands such as `xpeng.unlock` resolve the first configured vehicle;
-they do not accept a generic `target.entity_id`. Prefer native `cover`, `climate`,
-`switch`, `number`, `select` and `lock` actions with an explicit entity target
-when controlling a particular vehicle.
+Every vehicle service accepts an optional `vehicle_entity_id` — any entity of the
+car you mean — so a command can be aimed at a particular vehicle on an install
+with several; see [Choosing the vehicle](#choosing-the-vehicle). Prefer native
+`cover`, `climate`, `switch`, `number`, `select` and `lock` actions with an
+explicit entity target when controlling a particular vehicle.
 
 The four HVAC schedule services accept `vehicle_entity_id` (a climate entity,
 tracker or other XPENG entity). It is required when more than one vehicle is
@@ -68,6 +69,28 @@ is at Full access - a ceiling that applies to automations, scripts, voice assist
 tokens alike. `xpeng.import_credentials` is the one exemption. See
 [Command permissions](../reference/command-permissions) for the groups and for what a
 refusal looks like.
+
+## Choosing the vehicle
+
+On an install with more than one XPENG vehicle, every service below takes an
+optional `vehicle_entity_id`: any entity of the car you mean (`lock.…`,
+`device_tracker.…`, `climate.…`). The call is dispatched to that car's config
+entry, and the caller's entity permissions are checked against that same entry.
+
+```yaml
+- action: xpeng.send_navigation
+  data:
+    vehicle_entity_id: device_tracker.xpeng_x9_location
+    name: School
+    latitude: 51.7520
+    longitude: -1.2577
+```
+
+Omitting it keeps the older behaviour - the first configured entry - and logs one
+warning per setup when several vehicles exist. The four HVAC schedule services are
+stricter, because there "no target" is genuinely ambiguous: they refuse a
+multi-car call that names no vehicle. See
+[Selecting the vehicle for schedules](#selecting-the-vehicle-for-schedules).
 
 ## Climate and comfort
 
@@ -623,8 +646,11 @@ this service, so every later renewal uses `import_credentials` normally. See
 `list_hvac_schedules`, `create_hvac_schedule`, `update_hvac_schedule` and
 `delete_hvac_schedule` all accept optional `vehicle_entity_id`. Single-car calls
 may omit it; multi-car calls must choose an entity belonging to the intended
-XPENG config entry. Successful edits refresh the schedule/calendar. If an edit
-succeeds but refresh fails, the service reports that uncertainty rather than
+XPENG config entry. Unlike the other services ([Choosing the
+vehicle](#choosing-the-vehicle)), this one does not fall back to the first entry
+when several cars exist - it refuses, because a schedule written to the wrong car
+is worse than a failed call. Successful edits refresh the schedule/calendar. If an
+edit succeeds but refresh fails, the service reports that uncertainty rather than
 silently claiming the displayed list is current.
 
 ```yaml

@@ -770,7 +770,7 @@ class TestRegisteredServiceVehicleScope(unittest.TestCase):
                 "command_policy": policy.CommandPolicy.from_preset(policy.PRESET_FULL),
             }
         tree = ast.parse((PKG / "services.py").read_text(encoding="utf-8"))
-        names = ("_get_entry_data", "_send", "handle_unlock", "_gated")
+        names = ("_get_entry_data", "_entry_for_call", "_send", "handle_unlock", "_gated")
         nodes = [next(n for n in ast.walk(tree)
                       if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
                       and n.name == name) for name in names]
@@ -779,7 +779,11 @@ class TestRegisteredServiceVehicleScope(unittest.TestCase):
             "HomeAssistant": object, "ServiceCall": object,
             "HomeAssistantError": HomeAssistantError,
             "COMMAND_NOT_SENT_MESSAGE": "not sent",
-            "_LOGGER": types.SimpleNamespace(error=lambda *args: None),
+            "_LOGGER": types.SimpleNamespace(
+                error=lambda *args: None, warning=lambda *args: None
+            ),
+            "er": types.SimpleNamespace(async_get=lambda hass: hass.entity_registry),
+            "_ambiguity_warned": False,
             "service": "unlock", "group": policy.GROUP_ACCESS,
             "default_policy": policy.default_policy,
             "async_guard_service": gate.async_guard_service,
@@ -798,13 +802,29 @@ class TestRegisteredServiceVehicleScope(unittest.TestCase):
             _run(call(_Call(user_id="limited-user")))
         self.assertEqual(sent, [])
 
-    def test_claiming_another_target_cannot_authorize_a_different_dispatch(self):
-        call, sent = self.make(allowed=["lock.car_b"])
+    def test_naming_a_car_you_cannot_control_is_refused(self):
+        """#11 changed what the target *means*, not what authorises it."""
+        call, sent = self.make(allowed=["lock.car_a"])
         request = _Call(user_id="limited-user")
         request.data = {"vehicle_entity_id": "lock.car_b"}
         with self.assertRaises(Unauthorized):
             _run(call(request))
         self.assertEqual(sent, [])
+
+    def test_naming_the_other_car_dispatches_to_it(self):
+        """The regression pin for #11: the commanded car follows the target.
+
+        Before the option existed every service drove the first entry, so an
+        automation that named the second car still unlocked the first. Gate and
+        handler now resolve the target by the same rule, so the car that was
+        authorised is the car that is commanded.
+        """
+        call, sent = self.make(allowed=["lock.car_b"])
+        request = _Call(user_id="limited-user")
+        request.data = {"vehicle_entity_id": "lock.car_b"}
+        _run(call(request))
+        self.assertEqual([entry[0] for entry in sent], ["b"])
+        self.assertEqual(sent[0][1], "vehicle-b")
 
     def test_control_of_the_dispatched_car_is_sufficient(self):
         call, sent = self.make(allowed=["lock.car_a"])

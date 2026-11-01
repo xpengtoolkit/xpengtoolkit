@@ -271,7 +271,7 @@ class ClimateTests(unittest.IsolatedAsyncioTestCase):
             "DOMAIN": "xpeng",
             "HomeAssistantError": Error,
             "hass": e.hass,
-            "_get_entry_data": lambda hass: {
+            "_entry_for_call": lambda hass, call: {
                 "coordinator": e.coordinator,
                 "mqtt_client": e._mqtt_client,
             },

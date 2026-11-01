@@ -74,7 +74,7 @@ from .const import (
     MQTT_DISCOVERY_CANDIDATES,
     PLATFORMS,
 )
-from .coordinator import XPengDataCoordinator
+from .coordinator import WIDGET_MERGE_STALE_SECONDS, XPengDataCoordinator
 from .mqtt_client import XPengMQTTClient
 from .services import async_setup_services, async_unload_services
 
@@ -1606,6 +1606,69 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         cancel_rest_timer = cancel_rest_timer_fn
 
+    # 6c-bis. Fast widget fallback poll — the fallback's own cadence.
+    #
+    # `_poll_rest_data` slows to parked_scan_interval (3600s) while parked, and
+    # the widget read rides inside it. That is right while the push stream is
+    # healthy, but when the fan-out is wedged the widget is the only evidence
+    # that a parked car has started driving, so the recovery path inherited an
+    # hourly bound. Measured 2026-10-27 (issue #3): detections at 09:31:36 and
+    # 12:31:51 were 6-9 minutes after set-off only because the hourly poll's
+    # phase happened to land there - a drive starting just after a poll was
+    # invisible for up to ~59 minutes.
+    #
+    # This timer asks for the widget and nothing else, and only while the last
+    # energy-carrying push is older than the merge gate - the exact condition
+    # the fallback exists for. It cannot wake the car (a cloud read) and adds no
+    # load on the other REST endpoints.
+    cancel_widget_fallback = None
+    if api_available:
+        widget_timer_state: dict[str, Any] = {"cancel": None, "stopped": False}
+
+        async def _poll_widget_fallback(_now: Any) -> None:
+            try:
+                if not coordinator.mqtt_energy_stale(
+                    WIDGET_MERGE_STALE_SECONDS
+                ):
+                    # The push stream is carrying energy data; the widget has
+                    # nothing to add and the merge gate would refuse it anyway.
+                    return
+                vehicle_type_code = str(
+                    getattr(coordinator, "vehicle_type_code", "") or ""
+                ).strip()
+                if not vehicle_type_code:
+                    # It rides in with the heavy REST poll's vehicle list.
+                    _LOGGER.debug(
+                        "Widget fallback poll skipped: no vehicle type code yet"
+                    )
+                    return
+                widget = await hass.async_add_executor_job(
+                    _fetch_widget_state_sync, entry, vin, vehicle_type_code
+                )
+                if widget:
+                    # The coordinator owns the gate, the motion evidence and the
+                    # replay floor; this poll only supplies the read.
+                    coordinator.set_rest_data({"widget_state": widget})
+            except Exception:  # noqa: BLE001 - a fallback poll must not fail setup
+                _LOGGER.debug("Widget fallback poll failed", exc_info=True)
+            finally:
+                if not widget_timer_state["stopped"]:
+                    widget_timer_state["cancel"] = async_call_later(
+                        hass, rest_scan_interval, _poll_widget_fallback
+                    )
+
+        widget_timer_state["cancel"] = async_call_later(
+            hass, rest_scan_interval, _poll_widget_fallback
+        )
+
+        def cancel_widget_fallback_fn() -> None:
+            widget_timer_state["stopped"] = True
+            if widget_timer_state["cancel"]:
+                widget_timer_state["cancel"]()
+                widget_timer_state["cancel"] = None
+
+        cancel_widget_fallback = cancel_widget_fallback_fn
+
     # 6d. MQTT silence watchdog — force reconnect if broker stops delivering.
     # XPENG's cloud push-fanout intermittently gets stuck (server-side stuck
     # session-routing); opening the app re-subscribes and unsticks it, and we
@@ -1954,6 +2017,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "cancel_timer",
                 "cancel_api_refresh",
                 "cancel_rest_timer",
+                "cancel_widget_fallback",
                 "cancel_watchdog",
             ):
                 cancel = previous.get(key)
@@ -1980,6 +2044,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "cancel_timer": cancel_timer,
         "cancel_api_refresh": cancel_api_refresh,
         "cancel_rest_timer": cancel_rest_timer,
+        "cancel_widget_fallback": cancel_widget_fallback,
         "cancel_watchdog": cancel_watchdog,
         "refresh_state": refresh_state,
         # The capture recorder, for the diagnostic sensor and for unload.
@@ -2172,6 +2237,30 @@ def _refresh_creds_sync(
         )
 
     return credentials
+
+def _fetch_widget_state_sync(
+    entry: ConfigEntry, vin: str, vehicle_type_code: str
+) -> dict[str, Any] | None:
+    """Read only the widget snapshot (blocking), for the fast fallback poll.
+
+    The heavy REST poll carries the widget alongside ~20 other endpoints, so it
+    is parked-gated at ``parked_scan_interval``; while the push stream was
+    wedged that made the fallback's detection bound an hour (issue #3,
+    2026-10-27: the 6-9 minute detections were the hourly poll's phase, not the
+    merge gate). This is the same single read on its own, cheap enough to run at
+    ``rest_scan_interval`` while the stream is silent.
+
+    No token-refresh handling here on purpose: the periodic credential loop and
+    the heavy poll own that, and a second refresher racing them on the same
+    refresh token is worse than one skipped widget sample.
+    """
+    from .xpeng_api import get_vehicle_state
+
+    tokens, tenant = _load_api_context(entry)
+    if not tokens or not tenant:
+        return None
+    state = get_vehicle_state(None, tenant, tokens, vin, vehicle_type_code or "")
+    return state if isinstance(state, dict) else None
 
 def _fetch_rest_data_sync(
     entry: ConfigEntry,
@@ -2725,6 +2814,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "cancel_timer",
                 "cancel_api_refresh",
                 "cancel_rest_timer",
+                "cancel_widget_fallback",
                 "cancel_watchdog",
             ):
                 cancel = data.get(key)

@@ -304,6 +304,41 @@ class TheParkedGuardRunsAtTheAcceptancePoint(unittest.TestCase):
         self.assertFalse(coord.set_vehicle_data(_state(60, odo=62210)))
 
 
+class TheFallbackGateHasOneDefinition(unittest.TestCase):
+    """The 5-minute gate is shared: the merge and the fast poll must agree.
+
+    The fast widget poll (issue #3, 2026-10-27) only spends a request while the
+    merge gate is open. If the two ever drift apart the poll either asks for
+    data its own merge will refuse, or never asks at all - and the detection
+    bound silently goes back to one parked interval.
+    """
+
+    def test_a_fresh_energy_frame_closes_the_gate(self):
+        coord = _coordinator_with(_state(60))
+        coord.last_energy_data_timestamp = datetime.now(timezone.utc)
+        self.assertFalse(coord.mqtt_energy_stale())
+
+    def test_silence_past_the_threshold_opens_it(self):
+        coord = _coordinator_with(_state(60))
+        coord.last_energy_data_timestamp = (
+            datetime.now(timezone.utc) - timedelta(minutes=6)
+        )
+        self.assertTrue(coord.mqtt_energy_stale())
+
+    def test_nothing_accepted_yet_opens_it(self):
+        self.assertTrue(_coordinator_with(None).mqtt_energy_stale())
+
+    def test_the_merge_uses_the_shared_decision(self):
+        source = (_component.component_dir() / "coordinator.py").read_text(
+            encoding="utf-8"
+        )
+        start = source.index("def _merge_widget_state_if_mqtt_stale(")
+        end = source.index("\n    def ", start + 10)
+        body = source[start:end]
+        self.assertIn("self.mqtt_energy_stale()", body)
+        self.assertNotIn("> 300", body, "the gate must not be re-hardcoded")
+
+
 class TheMergeTeachesTheMqttBaseline(unittest.TestCase):
     def test_the_adopted_content_is_the_merged_state(self):
         held = _state(50)
@@ -374,6 +409,48 @@ class TheRestFallbackIsMotionEvidence(unittest.TestCase):
             {"odometer": {"total_mileage": 62301}}
         )
         self.assertEqual(coord.last_motion_at, 0.0)
+
+
+class ASentinelWidgetIsNotAReplayAndIsNotMerged(unittest.TestCase):
+    """Issue #21: ``odometer -1.0`` from the REST widget.
+
+    The widget answers with ``-1`` when it has no authorised state for the
+    account/vehicle. Two things must hold: it must not be described as a replay
+    (the reported install chased that for eight hours), and it must not reach
+    the sensors, because a merged ``-1`` would read as -1 km.
+    """
+
+    def _merge(self, held, widget):
+        coord = _coordinator_with(held)
+        coord.last_energy_data_timestamp = datetime.now(timezone.utc) - timedelta(hours=2)
+        coord.last_data_timestamp = datetime.now(timezone.utc)
+        coord._merge_widget_state_if_mqtt_stale(widget)
+        return coord
+
+    def test_the_placeholder_never_reaches_the_odometer_sensor(self):
+        coord = self._merge(
+            _state(60, odo=6482),
+            {"odometer": {"total_mileage": -1.0}, "charge": {"battery_soc": 41}},
+        )
+        instant = coord._last_full_data["msg_content"]["instant"]
+        self.assertEqual(instant["odometer"]["total_mileage"], 6482)
+        self.assertEqual(instant["charge"]["battery_soc"], 60)
+
+    def test_it_does_not_become_motion_evidence(self):
+        coord = self._merge(
+            _state(60, odo=6482), {"odometer": {"total_mileage": -1.0}}
+        )
+        self.assertEqual(coord.last_motion_at, 0.0)
+
+    def test_a_real_reading_still_merges(self):
+        """The sentinel branch must not swallow the ordinary case."""
+        coord = self._merge(
+            _state(60, odo=6482),
+            {"odometer": {"total_mileage": 6483}, "charge": {"battery_soc": 41}},
+        )
+        instant = coord._last_full_data["msg_content"]["instant"]
+        self.assertEqual(instant["odometer"]["total_mileage"], 6483)
+        self.assertEqual(instant["charge"]["battery_soc"], 41)
 
 
 class TheWiringIsPresent(unittest.TestCase):

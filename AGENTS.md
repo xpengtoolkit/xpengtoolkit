@@ -51,3 +51,12 @@ in [`.cursor/rules/publish-identity.mdc`](.cursor/rules/publish-identity.mdc).
   English name by `XPengEntity.suggested_object_id` via `entity_names.py`, so a
   translated name must never change an id; do not add a placeholder to an
   English entity name.
+
+<!-- dsh-context-pointer -->
+## Workspace context — read before exploring
+
+Cross-machine context for this workspace: `/Volumes/projects/Work/.harness/context/Volumes-projects-xpeng-mqtt-public.md`
+(purpose, layout, commands, current state, open threads, gotchas). Read it first;
+it is maintained by the `dsh-context` skill. Update its **Current state** and
+**Open threads** before you finish a session that changed anything, and bump the
+`generated:` date. Stale context is worse than none.

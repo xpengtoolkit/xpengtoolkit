@@ -184,6 +184,12 @@ with it - otherwise a later charge-less ping re-broadcast the frozen snapshot
 and put the value back, which is what made the battery sensor flip between two
 values every `parked_scan_interval`.
 
+Since **0.6.38** that widget read also runs on its own timer: while the push
+stream is silent past that five-minute gate, only the widget is fetched every
+`rest_scan_interval`. The heavy REST poll still slows to the parked interval, but
+a car that starts driving while the fan-out is wedged is now noticed within
+minutes instead of at the next hourly poll.
+
 ### The car does not get woken up
 
 How often the integration *asks* the car for a fresh frame depends on what the

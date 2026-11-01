@@ -85,6 +85,44 @@ class TheVerdictUsesTheOdometer(unittest.TestCase):
         self.assertTrue(replay_guard.is_replay(0.0, 62234))
 
 
+class ASentinelIsNotAReplay(unittest.TestCase):
+    """Issue #21: ``odometer -1.0`` is "no data", not "an older snapshot".
+
+    A two-car install's second entry answered ``-1.0`` for eight hours while the
+    first worked. The replay rule matched it every time (it is behind any held
+    odometer) and the log blamed a replay, which sent the report the wrong way.
+    """
+
+    def test_a_negative_odometer_is_a_sentinel(self):
+        for value in (-1.0, -1, -0.5, -62234.0):
+            self.assertTrue(replay_guard.is_sentinel_odometer(value))
+
+    def test_zero_is_a_sentinel_too(self):
+        """A real reading is positive; 0 is what an empty payload leaves."""
+        self.assertTrue(replay_guard.is_sentinel_odometer(0.0))
+
+    def test_a_real_reading_is_not(self):
+        for value in (0.5, 1.0, 6482.0, 62234):
+            self.assertFalse(replay_guard.is_sentinel_odometer(value))
+
+    def test_no_reading_is_not_a_sentinel(self):
+        """Missing stays missing: the merge gate still has to see None."""
+        for value in (None,):
+            self.assertFalse(replay_guard.is_sentinel_odometer(value))
+
+    def test_a_sentinel_would_otherwise_look_like_a_replay(self):
+        """The two questions must stay separate - this is why the order matters."""
+        self.assertTrue(replay_guard.is_replay(-1.0, 6482.0))
+        self.assertTrue(replay_guard.is_sentinel_odometer(-1.0))
+
+    def test_the_coordinator_asks_about_the_sentinel_first(self):
+        """Pinned at the call site: order is the fix, not the helper."""
+        coordinator = (COMPONENT / "coordinator.py").read_text(encoding="utf-8")
+        sentinel_at = coordinator.index("if is_sentinel_odometer(widget_odometer):")
+        replay_at = coordinator.index("if is_replay(widget_odometer, self.max_odometer):")
+        self.assertLess(sentinel_at, replay_at)
+
+
 class TheReadersUnderstandBothShapes(unittest.TestCase):
     def test_state_path(self):
         self.assertEqual(replay_guard.odometer_from_state(_state(62234)), 62234)

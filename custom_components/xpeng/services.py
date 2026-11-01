@@ -12,6 +12,7 @@ import voluptuous as vol
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 
 from .climate_commands import power_payload, send_climate, temperature_payload
 from .hvac_schedules import async_manage_schedule, schedule_entry
@@ -120,6 +121,7 @@ def _normalize_start_time(value: str) -> str:
 
 CLIMATE_ON_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Optional("temperature", default=22.0): vol.Coerce(float),
         vol.Optional("duration", default=15): vol.Coerce(int),
     }
@@ -127,6 +129,7 @@ CLIMATE_ON_SCHEMA = vol.Schema(
 
 SENTINEL_ON_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Optional("sensitivity", default=2): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=3)
         ),
@@ -135,24 +138,28 @@ SENTINEL_ON_SCHEMA = vol.Schema(
 
 TRUNK_POWER_ON_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Optional("duration", default=60): vol.Coerce(int),
     }
 )
 
 SET_CHARGE_LIMIT_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("limit"): vol.All(vol.Coerce(int), vol.Range(min=50, max=100)),
     }
 )
 
 EXECUTE_SCENE_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("scene_id"): cv.string,
     }
 )
 
 TOGGLE_SCENE_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("scene_id"): cv.string,
         vol.Required("active"): cv.boolean,
     }
@@ -160,18 +167,21 @@ TOGGLE_SCENE_SCHEMA = vol.Schema(
 
 TRIGGER_OTA_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("upgrade_id"): vol.Coerce(int),
     }
 )
 
 CANCEL_OTA_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("upgrade_id"): vol.Coerce(int),
     }
 )
 
 OTA_FEEDBACK_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("upgrade_id"): vol.Coerce(int),
         vol.Required("status"): vol.Coerce(int),
     }
@@ -179,6 +189,7 @@ OTA_FEEDBACK_SCHEMA = vol.Schema(
 
 CHARGING_HINT_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         # 0 clears the hint; the cap keeps a stuck automation from holding the
         # fast cadence for a whole day.
         vol.Optional("duration_minutes", default=30): vol.All(
@@ -190,6 +201,7 @@ CHARGING_HINT_SCHEMA = vol.Schema(
 
 SEND_RAW_MQTT_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("service_type"): vol.Coerce(int),
         vol.Optional("msg_type", default=2): vol.Coerce(int),
         vol.Optional("msg_content", default="{}"): cv.string,
@@ -199,6 +211,7 @@ SEND_RAW_MQTT_SCHEMA = vol.Schema(
 
 SEND_NAVIGATION_SCHEMA = vol.Schema(
     {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("name"): cv.string,
         vol.Required("latitude"): vol.Coerce(float),
         vol.Required("longitude"): vol.Coerce(float),
@@ -209,19 +222,74 @@ SEND_NAVIGATION_SCHEMA = vol.Schema(
 )
 
 
-def _get_entry_data(hass: HomeAssistant) -> dict[str, Any] | None:
-    """Get the first XPENG config entry data."""
+#: Warned once per setup when a call names no vehicle on a multi-car install.
+#: Not per call: these handlers sit in automations, and a warning on every
+#: command of every multi-entry install would be the loudest thing in the log.
+_ambiguity_warned = False
+
+
+def _get_entry_data(
+    hass: HomeAssistant, vehicle_entity_id: str | None = None,
+) -> dict[str, Any] | None:
+    """The config entry a call is about.
+
+    With ``vehicle_entity_id`` the entry is resolved through the entity registry,
+    so a command can be aimed at the second car on a two-car install. Without it
+    the first entry is used - the behaviour every existing automation relies on -
+    and a multi-car install gets one warning per setup pointing at the option,
+    because silently driving car A when the caller meant car B is the failure
+    this option exists to remove (issue #11).
+    """
+    global _ambiguity_warned
+
     entries = hass.data.get(DOMAIN, {})
     if not entries:
         _LOGGER.error("No XPENG integration configured")
         return None
+    if vehicle_entity_id:
+        registry = er.async_get(hass)
+        entity = registry.async_get(vehicle_entity_id)
+        if entity is None:
+            raise HomeAssistantError(
+                f"Unknown vehicle entity '{vehicle_entity_id}': no such entity "
+                "in Home Assistant"
+            )
+        if entity.config_entry_id is None or entity.config_entry_id not in entries:
+            raise HomeAssistantError(
+                f"'{vehicle_entity_id}' does not belong to an XPENG vehicle. "
+                "Point vehicle_entity_id at any entity of the car you mean "
+                "(for example its lock or device tracker)."
+            )
+        return entries[entity.config_entry_id]
+    if len(entries) > 1 and not _ambiguity_warned:
+        _ambiguity_warned = True
+        _LOGGER.warning(
+            "This XPENG install has %d vehicles and the call named none: using "
+            "the first entry. Set 'vehicle_entity_id' (any entity of the car "
+            "you mean) on every XPENG service call, or automations will keep "
+            "driving the first car — see issue #11.",
+            len(entries),
+        )
     entry_id = next(iter(entries))
     return entries[entry_id]
 
 
-def _charge_port_controls_enabled(hass: HomeAssistant) -> bool:
+def _entry_for_call(hass: HomeAssistant, call: ServiceCall) -> dict[str, Any]:
+    """The entry a *service call* targets, raising when there is none.
+
+    Used by both the command gate and the handler, so the car that is checked
+    for permission and the car that is commanded are resolved by one rule. When
+    they were resolved separately (#6) the gate could approve one entry and the
+    handler act on another.
+    """
+    entry_data = _get_entry_data(hass, call.data.get("vehicle_entity_id"))
+    if not entry_data:
+        raise HomeAssistantError("No live XPENG config entry for this service")
+    return entry_data
+
+
+def _charge_port_controls_enabled(entry_data: dict[str, Any]) -> bool:
     """Respect the owner option and known model support; unknown stays allowed."""
-    entry_data = _get_entry_data(hass) or {}
     entry = entry_data.get("entry")
     from .vehicle_capabilities import from_coordinator
 
@@ -278,7 +346,7 @@ def _write_snapshot(config_dir: str, snapshot: dict[str, Any]) -> str:
 
 
 def _send(
-    hass: HomeAssistant,
+    entry_data: dict[str, Any] | None,
     service_type: int,
     msg_content: dict,
     msg_type: int = 2,
@@ -290,8 +358,12 @@ def _send(
     in the log - which is how "I pressed Wake and nothing happened" stayed
     invisible in the UI and in automation traces (measured 2026-10-16: the lock
     command was dropped twice while the client was reconnecting).
+
+    Takes the resolved entry rather than looking one up: this runs in an
+    executor, and the entry registry must be read on the event loop. Resolving
+    in the handler is also what keeps the commanded car the same one the
+    command gate approved (issue #11).
     """
-    entry_data = _get_entry_data(hass)
     if not entry_data:
         raise HomeAssistantError(
             "No live XPENG config entry to send this command from"
@@ -305,9 +377,10 @@ def _send(
 
 async def _send_confirmed(
     hass: HomeAssistant, service_type: int, content: dict,
+    entry_data: dict[str, Any] | None = None,
 ) -> None:
     """Use the same request serialization and response checks as entity controls."""
-    data = _get_entry_data(hass)
+    data = entry_data or _get_entry_data(hass)
     if not data:
         raise HomeAssistantError("No live XPENG config entry")
     await async_send_confirmed(
@@ -319,7 +392,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     """Register XPENG vehicle command services."""
 
     async def handle_climate_on(call: ServiceCall) -> None:
-        data = _get_entry_data(hass)
+        data = _entry_for_call(hass, call)
         if not data:
             raise HomeAssistantError("No live XPENG config entry")
         c, client = data["coordinator"], data["mqtt_client"]
@@ -341,7 +414,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             ) from err
 
     async def handle_climate_off(call: ServiceCall) -> None:
-        data = _get_entry_data(hass)
+        data = _entry_for_call(hass, call)
         if not data:
             raise HomeAssistantError("No live XPENG config entry")
         await send_climate(
@@ -350,16 +423,19 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def handle_close_windows(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 12, {"cmd_type": 1, "cmd_value": 1})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 12, {"cmd_type": 1, "cmd_value": 1}, data)
 
     async def handle_vent_windows(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 12, {"cmd_type": 1, "cmd_value": 2})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 12, {"cmd_type": 1, "cmd_value": 2}, data)
 
     async def handle_sentinel_on(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         sensitivity = call.data.get("sensitivity", 2)
         await hass.async_add_executor_job(
             _send,
-            hass,
+            data,
             8,
             {
                 "action": 2,
@@ -371,9 +447,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def handle_sentinel_off(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
             _send,
-            hass,
+            data,
             8,
             {
                 "action": 2,
@@ -385,29 +462,34 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def handle_trunk_power_on(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         duration = call.data.get("duration", 60)
         await hass.async_add_executor_job(
-            _send, hass, 13, {"action": 2, "timeToPowerOffInMin": duration}
+            _send, data, 13, {"action": 2, "timeToPowerOffInMin": duration}
         )
 
     async def handle_trunk_power_off(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 13, {"action": 3, "timeToPowerOffInMin": 0}
+            _send, data, 13, {"action": 3, "timeToPowerOffInMin": 0}
         )
 
     async def handle_flash_lights(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 5, {"cmd_type": 1, "cmd_value": 1}
+            _send, data, 5, {"cmd_type": 1, "cmd_value": 1}
         )
 
     async def handle_honk_horn(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 6, {"cmd_type": 1, "cmd_value": 1}
+            _send, data, 6, {"cmd_type": 1, "cmd_value": 1}
         )
 
     async def handle_force_update(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 19, {}, 4
+            _send, data, 19, {}, 4
         )
 
     async def handle_charging_hint(call: ServiceCall) -> None:
@@ -419,7 +501,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         whole point - a charging car is awake, so asking it often is enough, and a
         wrong hint then costs cloud round trips instead of the car's 12V battery.
         """
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         minutes = int(call.data.get("duration_minutes", 30))
@@ -432,60 +514,72 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def handle_lock(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 9, {"cmd_type": 1}
+            _send, data, 9, {"cmd_type": 1}
         )
 
     async def handle_unlock(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 9, {"cmd_type": 0}
+            _send, data, 9, {"cmd_type": 0}
         )
 
     async def handle_start_charge(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 4, {"cmd_type": 1, "cmd_value": 1})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 4, {"cmd_type": 1, "cmd_value": 1}, data)
 
     async def handle_stop_charge(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 4, {"cmd_type": 1, "cmd_value": 0})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 4, {"cmd_type": 1, "cmd_value": 0}, data)
 
     async def handle_open_trunk(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 9, {"cmd_type": 2, "cmd_value": 1}
+            _send, data, 9, {"cmd_type": 2, "cmd_value": 1}
         )
 
     async def handle_close_trunk(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
-            _send, hass, 9, {"cmd_type": 2, "cmd_value": 3}
+            _send, data, 9, {"cmd_type": 2, "cmd_value": 3}
         )
 
     async def handle_open_charge_port(call: ServiceCall) -> None:
-        if not _charge_port_controls_enabled(hass):
+        data = _entry_for_call(hass, call)
+        if not _charge_port_controls_enabled(data):
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="charge_port_control_disabled",
             )
-        await _send_confirmed(hass, 4, {"cmd_type": 3, "cmd_value": 1})
+        await _send_confirmed(hass, 4, {"cmd_type": 3, "cmd_value": 1}, data)
 
     async def handle_close_charge_port(call: ServiceCall) -> None:
-        if not _charge_port_controls_enabled(hass):
+        data = _entry_for_call(hass, call)
+        if not _charge_port_controls_enabled(data):
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="charge_port_control_disabled",
             )
-        await _send_confirmed(hass, 4, {"cmd_type": 3, "cmd_value": 0})
+        await _send_confirmed(hass, 4, {"cmd_type": 3, "cmd_value": 0}, data)
 
     async def handle_set_charge_limit(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 4, {"cmd_type": 2, "cmd_value": call.data["limit"]})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 4, {"cmd_type": 2, "cmd_value": call.data["limit"]}, data)
 
     async def handle_defrost_on(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 3, {"cmd_type": 4, "cmd_value": 1})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 3, {"cmd_type": 4, "cmd_value": 1}, data)
 
     async def handle_defrost_off(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 3, {"cmd_type": 4, "cmd_value": 0})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 3, {"cmd_type": 4, "cmd_value": 0}, data)
 
     async def handle_open_windows(call: ServiceCall) -> None:
-        await _send_confirmed(hass, 12, {"cmd_type": 1, "cmd_value": 2})
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 12, {"cmd_type": 1, "cmd_value": 2}, data)
 
     async def handle_execute_scene(call: ServiceCall) -> None:
         scene_id = call.data["scene_id"]
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -506,7 +600,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_toggle_scene(call: ServiceCall) -> None:
         scene_id = call.data["scene_id"]
         active = call.data["active"]
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -524,9 +618,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             toggle_xcombo_scene, None, tenant, tokens, scene_id, coordinator.vin, active
         )
 
-    async def _do_capture_snapshot(reason: str) -> str | None:
+    async def _do_capture_snapshot(
+        reason: str, entry_data: dict[str, Any] | None = None,
+    ) -> str | None:
         """Build and persist a snapshot. Returns path or None."""
-        entry_data = _get_entry_data(hass)
+        entry_data = entry_data or _get_entry_data(hass)
         if not entry_data:
             return None
         coordinator = entry_data["coordinator"]
@@ -543,7 +639,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def handle_capture_snapshot(call: ServiceCall) -> None:
         reason = call.data.get("reason", "manual")
-        await _do_capture_snapshot(reason)
+        await _do_capture_snapshot(reason, _entry_for_call(hass, call))
 
     @callback
     def _on_xos_version_changed(event: Event) -> None:
@@ -560,7 +656,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
         Use after code:12 ("Vehicle controls in used") to allow new commands.
         """
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -582,7 +678,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             _LOGGER.warning("clear_stuck_commands failed: %s", err)
 
     async def handle_check_ota(call: ServiceCall) -> None:
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -627,7 +723,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def handle_trigger_ota(call: ServiceCall) -> None:
         upgrade_id = call.data["upgrade_id"]
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -648,7 +744,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def handle_cancel_ota(call: ServiceCall) -> None:
         upgrade_id = call.data["upgrade_id"]
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -668,7 +764,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _LOGGER.info("OTA schedule cancelled: upgrade_id=%s result=%s", upgrade_id, result)
 
     async def handle_auto_upgrade_on(call: ServiceCall) -> None:
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -688,7 +784,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _LOGGER.info("Auto-upgrade enabled: result=%s", result)
 
     async def handle_auto_upgrade_off(call: ServiceCall) -> None:
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -710,7 +806,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_ota_feedback(call: ServiceCall) -> None:
         upgrade_id = call.data["upgrade_id"]
         status = call.data["status"]
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -730,6 +826,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _LOGGER.info("OTA feedback sent: upgrade_id=%s status=%s result=%s", upgrade_id, status, result)
 
     async def handle_send_raw_mqtt(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
         service_type = call.data["service_type"]
         msg_type = call.data.get("msg_type", 2)
         msg_content_str = call.data.get("msg_content", "{}")
@@ -743,7 +840,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             service_type, msg_type, msg_content,
         )
         await hass.async_add_executor_job(
-            _send, hass, service_type, msg_content, msg_type
+            _send, data, service_type, msg_content, msg_type
         )
 
     async def handle_create_hvac_schedule(call: ServiceCall) -> None:
@@ -771,7 +868,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         label = call.data.get("label")
         poi_id = call.data.get("poi_id")
         msg_type = call.data.get("msg_type")
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -800,7 +897,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             _LOGGER.warning("send_navigation failed: %s", err)
 
     async def handle_force_calendar_sync(call: ServiceCall) -> None:
-        entry_data = _get_entry_data(hass)
+        entry_data = _entry_for_call(hass, call)
         if not entry_data:
             return
         entry = entry_data.get("entry")
@@ -849,7 +946,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                            SERVICE_DELETE_HVAC_SCHEDULE, SERVICE_LIST_HVAC_SCHEDULES):
                 entry_data = schedule_entry(hass, call.data)
             else:
-                entry_data = _get_entry_data(hass) or {}
+                entry_data = _entry_for_call(hass, call)
             entry_id = next(
                 (key for key, data in hass.data.get(DOMAIN, {}).items()
                  if data is entry_data),
@@ -913,6 +1010,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
 async def async_unload_services(hass: HomeAssistant) -> None:
     """Unload XPENG services."""
+    global _ambiguity_warned
+    # Re-arm the multi-car warning: an unload/reload is exactly when an owner
+    # may have added or removed a second car.
+    _ambiguity_warned = False
     for service in (
         SERVICE_CLIMATE_ON,
         SERVICE_CLIMATE_OFF,

@@ -38,6 +38,13 @@ from typing import Any
 #: rounding wobble below the last accepted value is a replay, not noise.
 ODOMETER_TOLERANCE_KM = 0.5
 
+#: An odometer at or below this is not a reading at all: it is the REST widget's
+#: "no data" placeholder. Reported on #21 (2026-11-01) by a two-car install whose
+#: second entry kept answering ``odometer -1.0`` while the first worked. A real
+#: odometer is non-negative, so a genuine reading cannot be mistaken for it - and
+#: a sentinel must never be merged, or the odometer sensor would read -1 km.
+SENTINEL_ODOMETER_MAX_KM = 0.0
+
 
 def as_number(value: Any) -> float | None:
     """Coerce an odometer reading, or return None when there is nothing usable.
@@ -100,3 +107,19 @@ def is_replay(
     if candidate is None or held is None:
         return False
     return candidate < held - tolerance
+
+
+def is_sentinel_odometer(candidate: float | None) -> bool:
+    """Whether *candidate* is XPENG's "no data" placeholder, not a reading.
+
+    This is a different question from :func:`is_replay` and deliberately kept
+    separate: a sentinel is *always* below any held value, so the replay test
+    answers "older snapshot" for it - which is wrong twice over. It names the
+    wrong cause in the log (the 2026-11-01 report chased a replay that was not
+    happening) and it hides the actual signal, that the cloud had nothing to
+    give this account or vehicle at all.
+
+    Callers must treat it as "no usable payload" and drop it: merging would put
+    ``-1`` km on the odometer sensor.
+    """
+    return candidate is not None and candidate <= SENTINEL_ODOMETER_MAX_KM

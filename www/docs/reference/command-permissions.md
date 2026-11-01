@@ -5,13 +5,16 @@ ceiling on what it is allowed to *do* - independent of who is asking. Every comm
 belongs to one **capability group**, and every group is set to **Full**, **Read only**
 or **Disabled**.
 
-Several global `xpeng.*` services, such as `xpeng.unlock`, resolve the first
-configured vehicle and do not take an entity target. Native entity services
-(`cover.close_cover`, climate and switch actions) use `target.entity_id` and Home
-Assistant's entity permissions, in addition to the integration policy. The four
-HVAC schedule services take `vehicle_entity_id`; it is required for multiple
-vehicles and checked against the caller's permissions and the selected entry's
-policy. The policy also applies to automations and callers without a user.
+Every global `xpeng.*` service accepts an optional `vehicle_entity_id` naming the
+car to act on. When it is given, the caller must be allowed to control that
+entity **and** it must belong to the entry the call dispatches to, so naming one
+car can never authorise a command sent to another. When it is omitted the call
+resolves the first configured vehicle, which is what a single-car install always
+does. Native entity services (`cover.close_cover`, climate and switch actions) use
+`target.entity_id` and Home Assistant's entity permissions, in addition to the
+integration policy. The four HVAC schedule services are stricter: they require
+`vehicle_entity_id` for multiple vehicles rather than falling back to the first.
+The policy also applies to automations and callers without a user.
 
 ## The three states
 

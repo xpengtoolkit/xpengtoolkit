@@ -28,7 +28,12 @@ from .drive_evidence import (
     with_previous_fix,
 )
 from .energy_guard import parked_soc_replay, soc_of, state_is_charging
-from .replay_guard import is_replay, odometer_from_state, odometer_from_widget
+from .replay_guard import (
+    is_replay,
+    is_sentinel_odometer,
+    odometer_from_state,
+    odometer_from_widget,
+)
 from .vin_descriptor import decode as decode_vin, mask_vin
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +52,12 @@ _STATE_SAVE_DELAY = 30
 # Parked-drain plausibility limits — reject SOC steps that carry driving energy.
 _MAX_PARKED_DRAIN_RATE_PCT_PER_H = 3.0
 _MAX_PARKED_DRAIN_STEP_PCT = 12.0
+
+#: How quiet the push stream must be before the REST widget is trusted over the
+#: last accepted MQTT state. One decision, two users: the merge below, and the
+#: fast widget poll in ``__init__.py`` (6c-bis) that only spends a request while
+#: the stream is the thing that is missing.
+WIDGET_MERGE_STALE_SECONDS = 300
 
 # `instant.*` sections the REST widget fallback must NEVER merge. The fallback
 # exists only to keep *energy* fields fresh while MQTT's push-fanout is stuck
@@ -819,6 +830,26 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._last_full_data:
             self.async_set_updated_data(self._last_full_data)
 
+    def mqtt_energy_stale(self, seconds: float = WIDGET_MERGE_STALE_SECONDS) -> bool:
+        """Whether the push stream has been silent long enough for the fallback.
+
+        Gated on last_energy_data_timestamp, NOT last_data_timestamp: a partial
+        ping that only refreshes e.g. door/window/ext still bumps the latter
+        (correctly, for the silence watchdog) but must not be mistaken for a
+        fresh battery/range reading — that masking bug is what let
+        battery_soc/range sit hours stale in practice even though the connection
+        looked "not stale" the whole time (2026-09-15).
+
+        This is the single answer to "is the widget better than what we hold?".
+        The merge uses it to protect a fresh push, and the fast widget poll uses
+        it to decide whether asking the widget is worth an API call.
+        """
+        if self._last_full_data is None or self.last_energy_data_timestamp is None:
+            return True
+        return (
+            datetime.now(timezone.utc) - self.last_energy_data_timestamp
+        ).total_seconds() > seconds
+
     def _merge_widget_state_if_mqtt_stale(self, widget: Any) -> None:
         """REST fallback: push widget_state through as if it were an MQTT update.
 
@@ -850,11 +881,7 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not isinstance(widget, dict):
             return
         now = datetime.now(timezone.utc)
-        mqtt_stale = (
-            self._last_full_data is None
-            or self.last_energy_data_timestamp is None
-            or (now - self.last_energy_data_timestamp).total_seconds() > 300
-        )
+        mqtt_stale = self.mqtt_energy_stale()
         _LOGGER.info(
             "Merge stale check: mqtt_stale=%s _last_full_data=%s",
             mqtt_stale, "set" if self._last_full_data else "None",
@@ -866,6 +893,23 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # overwrite the fresher MQTT state either - same odometer rule, applied
         # in the other direction.
         widget_odometer = odometer_from_widget(widget)
+        # A sentinel is not an older snapshot, it is no snapshot at all. Asked
+        # first because it would otherwise always match the replay rule below
+        # (-1 is behind any odometer a car has) and be reported as the wrong
+        # fault: #21 chased a replay for eight hours while the second entry's
+        # account simply had nothing to give. Keep it out of the merge too - a
+        # merged -1 would put -1 km on the odometer sensor.
+        if is_sentinel_odometer(widget_odometer):
+            _LOGGER.warning(
+                "Not merging the REST widget: it carries no usable odometer "
+                "(%s km, XPENG's \"no data\" placeholder) — this entry has no "
+                "authorised vehicle data right now, so there is nothing to "
+                "merge. This is not a replay of an older snapshot; if it "
+                "persists, check this entry's tokens and whether its MQTT "
+                "connection is being refused (rc=Not authorized).",
+                widget_odometer,
+            )
+            return
         if is_replay(widget_odometer, self.max_odometer):
             _LOGGER.warning(
                 "Not merging the REST widget: its odometer %s km is behind the "

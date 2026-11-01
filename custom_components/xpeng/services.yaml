@@ -6,6 +6,15 @@ charging_hint:
     admit it. Polling only: this never wakes the car - the queries it raises are
     passive - so a wrong hint costs cloud round trips, not battery.
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     duration_minutes:
       name: Duration in minutes
       description: >-
@@ -23,6 +32,15 @@ climate_on:
   name: Climate ON
   description: Turn on climate control
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     temperature:
       name: Temperature
       description: Target temperature in Celsius; LO/HI endpoints require vehicle support
@@ -48,19 +66,58 @@ climate_on:
 climate_off:
   name: Climate OFF
   description: Turn off climate control
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 close_windows:
   name: Close windows
   description: Close all windows
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 vent_windows:
   name: Vent windows
   description: Open windows slightly for ventilation
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 sentinel_on:
   name: Sentinel mode ON
   description: Enable sentinel (sentry) mode
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     sensitivity:
       name: Sensitivity
       description: Detection sensitivity level (0-3)
@@ -75,11 +132,30 @@ sentinel_on:
 sentinel_off:
   name: Sentinel mode OFF
   description: Disable sentinel (sentry) mode
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 trunk_power_on:
   name: Trunk power ON
   description: Enable trunk power outlet (V2L)
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     duration:
       name: Duration
       description: Auto-off timer in minutes
@@ -94,55 +170,184 @@ trunk_power_on:
 trunk_power_off:
   name: Trunk power OFF
   description: Disable trunk power outlet
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 flash_lights:
   name: Flash lights
   description: Flash the vehicle lights
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 honk_horn:
   name: Honk horn
   description: Sound the vehicle horn
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 force_update:
   name: Force update
   description: Force a vehicle state update query
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 lock:
   name: Lock
   description: Lock the vehicle doors
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 unlock:
   name: Unlock
   description: Unlock the vehicle doors
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 start_charge:
   name: Start charging
   description: Start charging the vehicle battery
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 stop_charge:
   name: Stop charging
   description: Stop charging the vehicle battery
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 open_trunk:
   name: Open trunk
   description: Open the vehicle trunk
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 close_trunk:
   name: Close trunk
   description: Close the vehicle trunk
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 open_charge_port:
   name: Open charge port
   description: Open the charge port (the single CCS2 port on export cars)
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 close_charge_port:
   name: Close charge port
   description: Close the charge port (the single CCS2 port on export cars)
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 set_charge_limit:
   name: Set charge limit
   description: Set the battery charge limit percentage
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     limit:
       name: Charge limit
       description: Target charge percentage (50-100)
@@ -158,19 +363,58 @@ set_charge_limit:
 defrost_on:
   name: Defrost ON
   description: Turn on front windshield defrost
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 defrost_off:
   name: Defrost OFF
   description: Turn off front windshield defrost
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 open_windows:
   name: Open windows
   description: Open all windows fully
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 execute_scene:
   name: Execute X-Combo scene
   description: Execute (one-key start) an X-Combo smart scene
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     scene_id:
       name: Scene ID
       description: The X-Combo scene ID to execute
@@ -183,6 +427,15 @@ toggle_scene:
   name: Toggle X-Combo scene
   description: Activate or deactivate an X-Combo smart scene
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     scene_id:
       name: Scene ID
       description: The X-Combo scene ID to toggle
@@ -201,11 +454,30 @@ toggle_scene:
 check_ota:
   name: Check OTA
   description: Check for available OTA updates and refresh OTA sensor data
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 trigger_ota:
   name: Trigger OTA upgrade
   description: Initiate an OTA upgrade on the vehicle (use with caution)
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     upgrade_id:
       name: Upgrade ID
       description: The upgrade ID from the OTA upgrade sensor attributes
@@ -220,6 +492,15 @@ cancel_ota:
   name: Cancel OTA schedule
   description: Cancel a scheduled OTA upgrade
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     upgrade_id:
       name: Upgrade ID
       description: The upgrade ID of the scheduled update to cancel
@@ -233,15 +514,44 @@ cancel_ota:
 auto_upgrade_on:
   name: Auto-upgrade ON
   description: Enable automatic OTA upgrades
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 auto_upgrade_off:
   name: Auto-upgrade OFF
   description: Disable automatic OTA upgrades
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 ota_feedback:
   name: OTA status feedback
   description: Send OTA upgrade status feedback to the server
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     upgrade_id:
       name: Upgrade ID
       description: The upgrade ID to send feedback for
@@ -266,6 +576,15 @@ send_raw_mqtt:
   name: Send raw MQTT command
   description: Send an arbitrary MQTT command to the vehicle (advanced/debug use)
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     service_type:
       name: Service type
       description: The MQTT service_type number (e.g. 34 for CMD_TO_SCREEN)
@@ -301,6 +620,16 @@ clear_stuck_commands:
     Clear the server-side pending vehicle command queue. Use when the car
     returns code:12 ("Vehicle controls in used"), e.g. after rapid command
     bursts. Calls REST vehicleCmdClear; only affects your own account.
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
 
 capture_snapshot:
   name: Capture state snapshot
@@ -310,6 +639,15 @@ capture_snapshot:
     detected xos_version change so each OTA update produces a before/after
     pair. Useful for diffing across XOS updates.
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     reason:
       name: Reason
       description: Free-form label stored in the snapshot file (e.g. "pre_xos_update")
@@ -488,6 +826,15 @@ send_navigation:
     Send a navigation destination card to the vehicle's head unit. Backs the
     official app's "send POI to car" feature via the cloud REST channel.
   fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
     name:
       name: Name
       description: Destination name shown on the vehicle screen
@@ -533,3 +880,13 @@ force_calendar_sync:
     Trigger the vehicle's phone-calendar schedule sync (same as the head-unit
     sync button). Re-asserts the calendar sync authorization and refreshes the
     schedule metadata from the XPENG assistant service.
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng

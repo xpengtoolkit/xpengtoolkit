@@ -552,6 +552,7 @@ class LegacyAndOptionsTests(unittest.IsolatedAsyncioTestCase):
         ns = {
             "hass": h,
             "_send_confirmed": send,
+            "_entry_for_call": lambda hass, call: {"entry": None},
             "ServiceCall": object,
             "HomeAssistantError": Error,
             "DOMAIN": "xpeng",
@@ -561,9 +562,9 @@ class LegacyAndOptionsTests(unittest.IsolatedAsyncioTestCase):
             ns,
         )
         await ns["handle_close_windows"](None)
-        send.assert_awaited_with(h, 12, {"cmd_type": 1, "cmd_value": 1})
+        send.assert_awaited_with(h, 12, {"cmd_type": 1, "cmd_value": 1}, {"entry": None})
         await ns["handle_vent_windows"](None)
-        send.assert_awaited_with(h, 12, {"cmd_type": 1, "cmd_value": 2})
+        send.assert_awaited_with(h, 12, {"cmd_type": 1, "cmd_value": 2}, {"entry": None})
         send.side_effect = Error("vehicle refused")
         with self.assertRaisesRegex(Error, "vehicle refused"):
             await ns["handle_close_windows"](None)

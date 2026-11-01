@@ -287,6 +287,12 @@ change its `slug`, keep its `image:`, and give it a third `pair_dir` and port. T
 is no second copy of the worker to keep in step, which is the point of the slot being
 packaging only.
 
+Commands reach the car you mean, too. Every `xpeng.*` service takes an optional
+`vehicle_entity_id` - any entity of that car - so an automation can unlock the
+second car or send it a destination. Omit it and the call acts on the first
+configured entry, which on this install is the wrong car; see
+[Services](../reference/services#choosing-the-vehicle).
+
 The solver can normally be shared: it solves the slider, not the account. One
 caveat worth knowing before blaming the accounts: a solver instance keeps **one
 Chromium process** for its lifetime and opens a fresh browser context per solve, so

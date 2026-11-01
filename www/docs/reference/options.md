@@ -74,7 +74,7 @@ car is the separate escalation described under [Fixed timers](#fixed-timers).
 | `parked_scan_interval` | the parked MQTT query, and the REST poll while parked | 3600 s / 60–7200 | no |
 | `mqtt_refresh_interval` | retrying the credential mint while disconnected, and the `credentials_valid` staleness bound (3 ×) | 45 s / 10–300 | no |
 | `notification_poll_interval` | the Message Centre poll (six requests per poll) | 300 s / 60–3600 | no |
-| `rest_scan_interval` | the REST poll for image, XOS version, energy report and the supplementary widgets | 300 s / 60–3600 | no |
+| `rest_scan_interval` | the REST poll for image, XOS version, energy report and the supplementary widgets; also the widget-only fallback poll while the push stream is silent | 300 s / 60–3600 | no |
 
 The integration publishes what each is doing now — see
 `sensor.xpeng_<vehicle>_polling_status` and
@@ -103,6 +103,12 @@ not a fault. The interval is therefore a trade-off between how promptly a parked
 car's values refresh and how much the car is disturbed — and this option also
 slows the **REST** poll, which uses `rest_scan_interval` while active and this
 value while parked. Raising it to `7200` halves both.
+
+The **widget-only fallback poll** is the exception: while the push stream is
+silent past its five-minute gate, that one read keeps the `rest_scan_interval`
+cadence regardless of this option (see [`rest_scan_interval`](#rest_scan_interval)).
+It is what bounds how long a car that starts driving during a wedged fan-out can
+stay unnoticed, so it deliberately does not slow down with the car.
 
 ::: info Parked/Silent flapping is normal
 The quiet interval and the silence threshold are deliberately different units of
@@ -148,6 +154,15 @@ widgets. Default **300 s**, accepted **60–3600 s**.
 The REST poll follows the car's state: this interval while active/driving,
 `parked_scan_interval` while parked. Notifications are on their own timer —
 `notification_poll_interval` — and are not affected by this option.
+
+Since **0.6.38** this interval also paces the **widget-only fallback poll**. When
+the last energy-carrying MQTT frame is older than the five-minute merge gate, the
+integration reads just `/biz/v5/widget/vehicle/state` every `rest_scan_interval`,
+instead of waiting for the heavy REST poll's parked cadence. That is what makes
+the fallback's motion evidence arrive within minutes: before it, a car that
+started driving right after the hourly REST poll was invisible for up to an hour
+(issue #3, 2026-10-27). It is a cloud read, it does not wake the car, and it does
+not fetch any of the other REST endpoints.
 
 ### `notification_poll_interval`
 

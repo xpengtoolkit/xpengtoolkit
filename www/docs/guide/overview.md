@@ -88,8 +88,14 @@ The timing defaults, all options on the integration under
 | Parked query interval (`parked_scan_interval`) | 3600 s | the passive-query cadence while parked |
 | MQTT credential safety-net interval (`mqtt_refresh_interval`) | 45 s | retry cadence while disconnected, and the age bound behind `credentials_valid` |
 | Message Centre poll interval (`notification_poll_interval`) | 300 s | how often notifications are fetched (six requests per poll) |
-| REST API poll interval (`rest_scan_interval`) | 300 s | REST-sourced data such as the vehicle image and XOS version |
+| REST API poll interval (`rest_scan_interval`) | 300 s | REST-sourced data such as the vehicle image and XOS version, and — while the push stream is silent — the widget-only fallback poll |
 | Certificate directory (`cert_dir`) | `/config/custom_components/xpeng/certs` | where the three mTLS files live |
+
+While the push stream has been silent past the five-minute gate, the integration
+also reads just the REST widget on the `rest_scan_interval` cadence (0.6.38).
+That is a cloud read, it does not wake the car, and it is what bounds how long a
+car that starts driving while the fan-out is wedged can stay unnoticed: minutes
+rather than the next hourly poll.
 
 ## Stuck sessions get unstuck
 
