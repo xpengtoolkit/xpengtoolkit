@@ -18,7 +18,7 @@ from .command_policy import (
     default_policy,
 )
 from .command_execution import async_send_confirmed
-from .const import DOMAIN
+from .const import DOMAIN, UNIT_AMPERE
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
 from .entity_layout import include_legacy_entity
@@ -43,6 +43,7 @@ async def async_setup_entry(
         XPengSentinelSensitivity(coordinator, mqtt_client),
         XPengTrunkPowerTimer(coordinator, mqtt_client),
         XPengChargeLimit(coordinator, mqtt_client),
+        XPengChargeCurrentLimit(coordinator, mqtt_client),
         XPengFanSpeed(coordinator, mqtt_client),
     ]
     entities = [
@@ -190,6 +191,64 @@ class XPengChargeLimit(XPengEntity, NumberEntity):
         await async_send_confirmed(
             self.hass, self._mqtt_client, self._vin, 4,
             {"cmd_type": 2, "cmd_value": int(value)},
+        )
+
+
+class XPengChargeCurrentLimit(XPengEntity, NumberEntity):
+    """Number to set the AC charge current limit (amperes).
+
+    A different control from :class:`XPengChargeLimit`, however much the two
+    names invite confusion: that one writes ``cmd_type 2`` and carries a
+    percentage, this one writes ``cmd_type 7`` and carries amperes. The app's
+    own handler is ``setChargeElectricityLimit`` (measured on a live G6
+    2026-11-03: 16 A sent, code 200, and ``instant.charge.electric_current_limit``
+    moved 27 -> 16 once the car next reported). Before this existed the only way
+    to reach it was ``xpeng.send_raw_mqtt``, which publishes without awaiting the
+    vehicle's answer - so a rejection looked exactly like success.
+    """
+
+    _policy_group = GROUP_CHARGING
+    _attr_translation_key = "charge_current_limit_control"
+    _attr_icon = "mdi:current-ac"
+    _attr_native_min_value = 6
+    _attr_native_max_value = 32
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = UNIT_AMPERE
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(
+        self, coordinator: XPengDataCoordinator, mqtt_client: XPengMQTTClient
+    ) -> None:
+        super().__init__(coordinator)
+        self._mqtt_client = mqtt_client
+        self._attr_unique_id = f"xpeng_{self._vin}_charge_current_limit_control"
+
+    @property
+    def native_value(self) -> int | None:
+        if not self.coordinator.data:
+            return None
+        charge = (
+            self.coordinator.data
+            .get("msg_content", {})
+            .get("instant", {})
+            .get("charge", {})
+        )
+        return charge.get("electric_current_limit") if charge else None
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Await the vehicle's answer; telemetry owns the displayed value.
+
+        The acknowledgement for this command does not carry
+        ``electric_current_limit`` - service 4 answers with whatever charge
+        fields it feels like reporting, and measurement showed the ampere field
+        absent - so nothing is folded in here and the number stays at its old
+        reading until the car next uploads state. That lag is honest: a
+        publication is not a physical change.
+        """
+        self._guard()
+        await async_send_confirmed(
+            self.hass, self._mqtt_client, self._vin, 4,
+            {"cmd_type": 7, "cmd_value": int(value)},
         )
 
 

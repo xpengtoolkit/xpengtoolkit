@@ -163,6 +163,7 @@ ENGLISH_ENTITY_NAMES: dict[str, dict[str, str]] = {
         "sentinel_sensitivity_control": "Sentinel sensitivity",
         "trunk_power_timer_control": "Trunk power timer",
         "charge_limit_control": "Charge limit",
+        "charge_current_limit_control": "Charge current limit",
         "fan_speed_control": "Fan speed",
     },
     "climate": {

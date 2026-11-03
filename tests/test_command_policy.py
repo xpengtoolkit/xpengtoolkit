@@ -507,9 +507,9 @@ class TestEveryCommandIsGated(unittest.TestCase):
                     self.assertEqual(
                         call.func.value.id, "self", where
                     )
-        # 30 command methods, plus climate's mode setter, which delegates to
+        # 31 command methods, plus climate's mode setter, which delegates to
         # the two guarded methods above rather than guarding itself.
-        self.assertEqual(checked, 33, "a command method appeared or vanished")
+        self.assertEqual(checked, 34, "a command method appeared or vanished")
 
         # And the list above must cover every file that can command the car:
         # a new platform calling the MQTT client directly would otherwise be

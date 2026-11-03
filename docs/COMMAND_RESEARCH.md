@@ -11,6 +11,7 @@ Source locations: `MqttSendHandler`, `VehicleMsg`, `VehicleAbilityChecker`, `Sof
 - Charge flap: service 4, `cmd_type=3`: value 1 opens, value 0 closes. These are separate from charging start/stop and windows.
 - Trunk: service 9, `cmd_type=2`: value 1 opens, value 3 closes. Existing owner-tested encodings agree.
 - Seat heat and ventilation: service 30, `cmd_type=position`, `cmd_value=1` for heat or 2 for ventilation, `mode=level`. Do not reinterpret action-enum IDs as MQTT values. Existing driver/passenger position choices retain their vehicle evidence.
+- AC charge current limit: service 4, `cmd_type=7`, `cmd_value=<amperes>` — the app's `setChargeElectricityLimit`. Physically confirmed on a live G6 on 3 November 2026: `{"cmd_type": 7, "cmd_value": 16}` returned code 200 and moved `instant.charge.electric_current_limit` from 27 to 16 once the car next uploaded state. Two things make this row worth reading twice. It is **not** an A/C power toggle despite what the name suggests — A/C power is service 3, `cmd_type=1`. And its acknowledgement does not carry `electric_current_limit`; the reply held `charge_status`, `battery_keep_warm_status`, both port statuses and `max_range_charge` only, so unlike the percentage limit on `cmd_type=2` no command-state merge can confirm an ampere change and the readback lags until the next upload. Observed values on this car are 16 and 27 A; the 6–32 A range the control offers is the single-phase socket convention, not a bound measured from the vehicle.
 
 ## MQTT handler inventory
 

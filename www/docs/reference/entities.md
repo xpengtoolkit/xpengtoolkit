@@ -80,6 +80,7 @@ interfaces, raw fan reading and independent cabin measurements remain available.
 | `binary_sensor.xpeng_<vehicle>_charging` | binary_sensor | – | ON when `charging_state == 2` **or** interval charge power > 0 — the second test catches external/EVCC charging |
 | `binary_sensor.xpeng_<vehicle>_plugged_in` | binary_sensor | – | ON when the charge port reports `Connected` (`2`). `Open` (`1`) is a flap with nothing in it, so it is not plugged |
 | `number.xpeng_<vehicle>_charge_limit` | number (control) | % | 50–100 in steps of 5; writes the car's charge target |
+| `number.xpeng_<vehicle>_charge_current_limit_control` | number (control) | A | 6–32 in steps of 1; writes the **AC charge current limit** (`service_type 4`, `cmd_type 7`). Despite the near-identical name this is not the percentage control above, and it is not an A/C power toggle |
 | `button.xpeng_<vehicle>_start_charging` | button | – | Start charging |
 | `button.xpeng_<vehicle>_stop_charging` | button | – | Stop charging |
 | `button.xpeng_<vehicle>_open_charge_port` | button | – | Opens the charge port. Not created when **Motorized charge-port controls** is off (manual flap) |
@@ -323,6 +324,7 @@ switch, the trunk-power outlet, unlocking, the trunk and the windows.
 | `switch.xpeng_<vehicle>_parking_lights` | switch | on / off | Parking lights (no state feedback) |
 | `switch.xpeng_<vehicle>_ota_auto_upgrade` | switch | on / off | REST auto-upgrade setting |
 | `number.xpeng_<vehicle>_charge_limit` | number | 50–100 %, step 5 | Charge target |
+| `number.xpeng_<vehicle>_charge_current_limit_control` | number | 6–32 A, step 1 | AC charge current limit (`cmd_type` 7) |
 | `number.xpeng_<vehicle>_fan_speed` | number | 1–8 | Legacy control withheld: its old mapping sets temperature. Raw fan telemetry remains available. |
 | `number.xpeng_<vehicle>_sentinel_sensitivity` | number | 1–3 | Sentinel sensitivity (also enables video) |
 | `number.xpeng_<vehicle>_trunk_power_timer` | number | 0–1440 min, step 30 | Outlet auto-off; 0 switches the outlet off |

@@ -640,6 +640,9 @@
       "charge_limit_control": {
         "name": "Laadlimiet"
       },
+      "charge_current_limit_control": {
+        "name": "Laadstroomlimiet"
+      },
       "fan_speed_control": {
         "name": "Ventilatorsnelheid"
       }

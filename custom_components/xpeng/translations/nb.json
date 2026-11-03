@@ -640,6 +640,9 @@
       "charge_limit_control": {
         "name": "Ladegrense"
       },
+      "charge_current_limit_control": {
+        "name": "Gjeldende ladegrense"
+      },
       "fan_speed_control": {
         "name": "Viftetrinn"
       }

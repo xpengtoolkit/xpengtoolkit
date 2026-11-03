@@ -640,6 +640,9 @@
       "charge_limit_control": {
         "name": "Ladegrenze"
       },
+      "charge_current_limit_control": {
+        "name": "Ladestromgrenze"
+      },
       "fan_speed_control": {
         "name": "Lüfterstufe"
       }

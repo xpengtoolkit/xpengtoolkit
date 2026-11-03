@@ -640,6 +640,9 @@
       "charge_limit_control": {
         "name": "Charge limit"
       },
+      "charge_current_limit_control": {
+        "name": "Charge current limit"
+      },
       "fan_speed_control": {
         "name": "Fan speed"
       }

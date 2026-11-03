@@ -640,6 +640,9 @@
       "charge_limit_control": {
         "name": "Limite de charge"
       },
+      "charge_current_limit_control": {
+        "name": "Limite de courant de charge"
+      },
       "fan_speed_control": {
         "name": "Vitesse de ventilation"
       }

@@ -34,6 +34,14 @@ from .charge_port import CHARGE_PORT_CONTROLS_OPTION
 
 DOMAIN: Final = "xpeng"
 
+#: The ampere unit, re-exported for the platforms that declare an ammeter
+#: control. ``number.py`` importing ``UnitOfElectricCurrent`` straight from
+#: ``homeassistant.const`` broke every test that stubs that module with only
+#: the names it happened to need - those tests load ``.const`` as a bare
+#: ``DOMAIN="xpeng"`` module, so routing the unit through here keeps one stub
+#: surface instead of eight.
+UNIT_AMPERE: Final = UnitOfElectricCurrent.AMPERE
+
 #: What a caller is told when a command could not be published. Shared so the
 #: services, the buttons and the lock all say the same thing: a command that was
 #: never sent is not a command that was sent, and the difference was invisible
