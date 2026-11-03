@@ -33,8 +33,18 @@ falling odometer rather than repairing it).
 The tolerance is ``SOC_ROUNDING_TOLERANCE_PCT``: the resolution of the value,
 and the size of the BMS wobble seen while sitting, so a reading that merely
 rounds differently is not called a replay. While charging, and whenever the
-parked verdict is not known, no verdict is returned - charging is the one
-legitimate reason for a parked car's SoC to rise.
+parked verdict is not known, no verdict is returned - charging is one legitimate
+reason for a parked car's SoC to rise.
+
+It is not the only one, and issue #23 (2026-11-03) is the case that proves it. A
+scheduled charge that starts *and* finishes between two live frames is invisible
+to both: the held frame predates the session and reads Scheduled, the candidate
+postdates it and reads Connected with zero power, so no frame ever says
+"charging". The reported X9 sat at 24 % for 90 minutes after charging to 70 %
+overnight, because the watchdog's own force-upload produced exactly that pair of
+frames and the guard refused it three times. A cable in the port is therefore
+accepted as the second reason, read from the candidate - see
+``parked_soc_replay`` for why the held state cannot answer it.
 """
 
 from __future__ import annotations
@@ -100,12 +110,25 @@ def state_is_charging(state: Any) -> bool:
     return False
 
 
+def charge_section(state: Any) -> dict:
+    """The ``msg_content.instant.charge`` block of a coordinator state, or {}.
+
+    Kept here rather than reached for from ``charge_port`` because this module is
+    loaded standalone by path in the tests (no package context), and a relative
+    import would make that load fail.
+    """
+    content = _dig(state, "msg_content")
+    charge = _dig(content, "instant", "charge") if isinstance(content, dict) else None
+    return charge if isinstance(charge, dict) else {}
+
+
 def parked_soc_replay(
     candidate: Any,
     held: Any,
     *,
     parked: bool | None,
     charging: bool,
+    plugged_in: bool | None = None,
     tolerance: float = SOC_ROUNDING_TOLERANCE_PCT,
 ) -> bool:
     """Whether *candidate* is an older snapshot of a parked, idle car.
@@ -114,8 +137,31 @@ def parked_soc_replay(
     parked and not charging - the conditions under which state of charge can
     only fall. ``charging`` should account for the candidate as well as the
     held state, so a frame that starts a charge session is never refused.
+
+    ``plugged_in`` is the second legitimate reason for a rise, and issue #23 is
+    what made it necessary: a scheduled session that **starts and finishes
+    between two live frames** never appears as charging in either one. The held
+    frame still says Scheduled, the candidate says Connected with the session
+    over, and 46 % of driving range arrived while nobody was watching. A cable in
+    the port is the physical evidence that a charge was possible, so a rise is
+    not called a replay while one is attached. Measured on the reported payloads
+    (held 24 % / state 15 + plan armed; candidate 70 % / state 1).
+
+    Read it from the **candidate**, never from the held state: with a charge plan
+    armed and the car asleep, the two are byte-for-byte identical whether or not
+    a cable is in (measured 2026-10-17 - gun 0, connector 7, ports 2/2, state 15
+    unplugged), so ``charge_port.charge_cable_state`` deliberately answers
+    ``None`` there. The candidate is the frame that just woke the car, and it
+    reports the cable honestly. ``None`` means no evidence, which refuses as
+    before rather than excusing a rise.
+
+    This does not weaken the wedge protection the guard exists for: a fan-out
+    resending a genuinely older snapshot carries a *lower* SOC, which fails the
+    comparison below regardless of the cable.
     """
     if parked is not True or charging:
+        return False
+    if plugged_in:
         return False
     held_soc = soc_of(held)
     candidate_soc = soc_of(candidate)

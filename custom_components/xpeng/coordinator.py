@@ -19,6 +19,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import poll_status
+from .charge_port import charge_cable_attached
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
 from .drive_evidence import (
@@ -27,7 +28,12 @@ from .drive_evidence import (
     view as drive_view,
     with_previous_fix,
 )
-from .energy_guard import parked_soc_replay, soc_of, state_is_charging
+from .energy_guard import (
+    charge_section,
+    parked_soc_replay,
+    soc_of,
+    state_is_charging,
+)
 from .replay_guard import (
     is_replay,
     is_sentinel_odometer,
@@ -382,14 +388,14 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def parked_energy_replay(self, data: Any) -> bool:
         """Whether ``data`` is a snapshot from before a parked car's drain.
 
-        A parked, idle car's state of charge cannot rise, so a pushed state
-        whose SOC is more than a rounding step above the value already held is
-        an older snapshot the wedged fan-out is resending - see
-        energy_guard.parked_soc_replay. Charging is the one legitimate reason
-        for a rise, so the candidate's own charge signals count too. This is
-        the energy-side companion to the odometer replay check: while a car is
-        parked its odometer does not move, which leaves that guard with no
-        signal and this one with the only one available.
+        A parked, idle, unplugged car's state of charge cannot rise, so a pushed
+        state whose SOC is more than a rounding step above the value already held
+        is an older snapshot the wedged fan-out is resending - see
+        energy_guard.parked_soc_replay. Charging and a plugged-in cable are the
+        two legitimate reasons for a rise, so the candidate's own charge signals
+        count too. This is the energy-side companion to the odometer replay
+        check: while a car is parked its odometer does not move, which leaves
+        that guard with no signal and this one with the only one available.
         """
         if self.state_is_restored:
             # The cache is not a measurement of "now": a car can charge while
@@ -408,6 +414,15 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 or self.external_charging_hint
                 or state_is_charging(data)
             ),
+            # Issue #23: a scheduled session that begins and ends between two
+            # live frames never shows up as charging in either, so the cable is
+            # the only remaining evidence that a rise was real. Read from the
+            # candidate - the frame that just woke the car - because the held
+            # one cannot answer it (see parked_soc_replay). ``charge_cable_attached``
+            # rather than ``charge_cable_state``: this wants positive evidence,
+            # and the tri-state refusal of the latter would leave the armed-plan
+            # case in #23 answering None, i.e. still refused.
+            plugged_in=charge_cable_attached(charge_section(data)),
         )
 
     def set_vehicle_data(self, data: dict[str, Any]) -> bool:

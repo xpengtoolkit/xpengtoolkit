@@ -53,6 +53,18 @@ energy_guard = importlib.util.module_from_spec(_SPEC)
 sys.modules["energy_guard_under_test"] = energy_guard
 _SPEC.loader.exec_module(energy_guard)
 
+# The cable evidence the #23 escape hatch reads comes from charge_port, which is
+# pure for the same reason energy_guard is, so it loads by path too. Loading it
+# under its package name keeps coordinator.py's `from .charge_port import ...`
+# working when that module is imported below with Home Assistant stubbed.
+_CP_SPEC = importlib.util.spec_from_file_location(
+    "custom_components.xpeng.charge_port", _component.module_path("charge_port.py")
+)
+assert _CP_SPEC and _CP_SPEC.loader
+charge_port = importlib.util.module_from_spec(_CP_SPEC)
+sys.modules["custom_components.xpeng.charge_port"] = charge_port
+_CP_SPEC.loader.exec_module(charge_port)
+
 
 def _state(soc=None, *, parked=True, charging=None, power=None, odo=62234):
     """A coordinator-shaped state, with the fields each rule reads."""
@@ -302,6 +314,218 @@ class TheParkedGuardRunsAtTheAcceptancePoint(unittest.TestCase):
         coord = _coordinator_with(held)
         coord.max_odometer = 62234
         self.assertFalse(coord.set_vehicle_data(_state(60, odo=62210)))
+
+
+# -- issue #23: a scheduled charge invisible to both frames -----------------
+
+
+def _scheduled_held(soc=24):
+    """The frame held before an overnight scheduled charge, verbatim from #23.
+
+    ``charging_state`` 15 with ``repeat_type`` 2 is what this car reports while it
+    waits for its plan - the same payload ``plugged_in`` deliberately refuses to
+    read a cable from, because asleep and armed it reports gun 0 / connector 7 /
+    ports 2/2 whether or not a cable is in (measured 2026-10-17).
+    """
+    return {
+        "msg_content": {
+            "instant": {
+                "odometer": {"total_mileage": 41234},
+                "drive": {"shift_state": 4, "speed": 0},
+                "charge": {
+                    "battery_soc": soc,
+                    "charging_state": 15,
+                    "repeat_type": 2,
+                    "reserve_charge_start_time": "00:00",
+                    "reserve_charge_end_time": "05:00",
+                    "charge_gun_status": 0,
+                    "charge_connector_status": 7,
+                    "slow_charge_port_status": 2,
+                    "fast_charge_port_status": 2,
+                },
+            }
+        },
+        "vin": "TESTVIN0000000000",
+    }
+
+
+def _session_finished(soc=70, *, state=1, gun=4):
+    """The force-upload's answer after the session: charged, cable still in.
+
+    State 1 ("Connected") with gun 4 is what the car says once the plan is done
+    and the wake has it talking again - the same transition #23 describes, and
+    the one measured on 2026-10-17 when switching the plan off moved gun 0 -> 4.
+    """
+    return {
+        "msg_content": {
+            "instant": {
+                "odometer": {"total_mileage": 41234},
+                "drive": {"shift_state": 4, "speed": 0},
+                "charge": {
+                    "battery_soc": soc,
+                    "charging_state": state,
+                    "repeat_type": 2,
+                    "charge_gun_status": gun,
+                    "charge_connector_status": 7,
+                    "slow_charge_port_status": 2,
+                },
+            },
+            "interval": {"charge": {"power": 0}},
+        },
+        "vin": "TESTVIN0000000000",
+    }
+
+
+class AScheduledChargeIsNotAReplay(unittest.TestCase):
+    """Issue #23 (Quatronimo, 2026-11-03), on an X9 with a 00:00-05:00 plan.
+
+    The car charged 24 % -> 70 % overnight (23.5 kWh over 300 min, all of it
+    correct in the payload) and the integration sat at 24 % for 90 minutes. The
+    watchdog's own force-upload produced the right answer at 05:35 and the guard
+    refused it three times, because no frame in the pair ever said "charging":
+    the held one predates the session (Scheduled) and the candidate postdates it
+    (Connected, power 0). A refusal also keeps the frame out of the watchdog's
+    data clock, and the 12 h escalation backoff means nothing self-heals - hence
+    "SOC stuck until reload", which is the part that makes this worth fixing
+    rather than shrugging off as a rare flap.
+    """
+
+    def _replay(self, candidate, held, **kwargs):
+        return energy_guard.parked_soc_replay(
+            candidate, held, parked=True, charging=False, **kwargs
+        )
+
+    def test_the_reported_pair_is_refused_without_the_cable_test(self):
+        """The bug, pinned first: this is what 0.6.39 did."""
+        self.assertTrue(
+            self._replay(_session_finished(), _scheduled_held())
+        )
+
+    def test_a_cable_in_the_candidate_frame_accepts_the_rise(self):
+        cand = _session_finished()
+        self.assertTrue(charge_port.charge_cable_attached(
+            energy_guard.charge_section(cand)
+        ))
+        self.assertFalse(
+            self._replay(cand, _scheduled_held(), plugged_in=True)
+        )
+
+    def test_the_coordinator_accepts_the_reported_pair(self):
+        """End to end through the real acceptance point, not just the helper."""
+        coord = _coordinator_with(_scheduled_held())
+        self.assertTrue(coord.set_vehicle_data(_session_finished()))
+        self.assertEqual(
+            coord._last_full_data["msg_content"]["instant"]["charge"]["battery_soc"],
+            70,
+        )
+
+    def test_the_held_cable_is_never_the_evidence(self):
+        """Reading the plug from the *held* frame would still answer "unknown".
+
+        With a plan armed and the car asleep, plugged and unplugged are
+        byte-for-byte identical, so ``charge_cable_state`` refuses the third case
+        there. This asserts the guard does not depend on that field agreeing.
+        """
+        held_charge = energy_guard.charge_section(_scheduled_held())
+        self.assertIsNone(charge_port.charge_cable_state(held_charge))
+        self.assertFalse(charge_port.charge_cable_attached(held_charge))
+
+    def test_an_unplugged_post_session_frame_is_still_refused(self):
+        """Cable gone and the session invisible: nothing excuses the rise."""
+        cand = _session_finished(gun=0, state=0)
+        self.assertFalse(
+            charge_port.charge_cable_attached(energy_guard.charge_section(cand))
+        )
+        self.assertTrue(self._replay(cand, _scheduled_held(), plugged_in=False))
+
+    def test_idle_state_after_a_session_is_a_known_gap(self):
+        """charging_state 8 (Idle) reports no cable, so #23 stays refused there.
+
+        Recorded rather than papered over: if a car posts its finished session as
+        Idle with the gun empty, the cable test cannot rescue it and the SOC
+        freezes again. No capture shows this yet, so it is not guessed at.
+        """
+        cand = _session_finished(state=8, gun=0)
+        self.assertFalse(
+            charge_port.charge_cable_attached(energy_guard.charge_section(cand))
+        )
+        self.assertTrue(self._replay(cand, _scheduled_held(), plugged_in=False))
+
+    def test_no_plugged_in_argument_keeps_the_old_behaviour(self):
+        """Callers that do not say get the pre-#23 rule, not a free pass."""
+        self.assertTrue(self._replay(_session_finished(), _scheduled_held()))
+
+    def test_a_lower_replay_is_accepted_regardless_of_the_cable(self):
+        """The wedge protection compares direction, and the cable cannot flip it.
+
+        A fan-out resending an older snapshot carries a *lower* SOC, so it fails
+        the rise test on its own merits; the cable only ever stops a rise being
+        called a replay.
+        """
+        self.assertFalse(
+            self._replay(_session_finished(soc=52), _session_finished(soc=58),
+                         plugged_in=True)
+        )
+
+    def test_the_g9_wedge_case_survives_the_change(self):
+        """2026-10-23: a high value frozen for hours by a replayed snapshot.
+
+        That car was unplugged and idle all day, so the new escape hatch must not
+        apply to it. This is the measurement energy_guard.py was written for.
+        """
+        self.assertTrue(
+            self._replay(_state(97), _state(94), plugged_in=False)
+        )
+
+    def test_a_complete_state_counts_as_plugged(self):
+        """State 3 ("Complete") is in CHARGING_STATES_PLUGGED: cable still in."""
+        cand = _session_finished(state=3)
+        self.assertTrue(
+            charge_port.charge_cable_attached(energy_guard.charge_section(cand))
+        )
+        self.assertFalse(self._replay(cand, _scheduled_held(), plugged_in=True))
+
+
+class TheWatchdogAnswerIsNotMarkedSpecial(unittest.TestCase):
+    """Why #23 could not be fixed by exempting the force-upload response.
+
+    The reporter's suggestion 3 asked for exactly that. It is not implementable
+    where the guard runs: mqtt_client routes the answer to a ``cmd_type`` 2
+    force-upload through the same state callback as a spontaneous push, and the
+    only flag it adds (``has_fresh_energy_data``) is set for any frame carrying a
+    charge or odometer block. Nothing distinguishes "the car answered our question
+    a second ago" from "the car volunteered", so the cable is the evidence that
+    has to do the work.
+    """
+
+    def source(self):
+        return (PKG_DIR / "mqtt_client.py").read_text()
+
+    def test_the_response_carries_no_request_correlation(self):
+        """The state payload has exactly three keys, none of them a correlation.
+
+        Parsed from the AST rather than sliced out of the source, so a reformat
+        cannot quietly turn this into a test of nothing.
+        """
+        import ast
+
+        tree = ast.parse(self.source())
+        shapes = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            keys = [
+                k.value
+                for k in node.keys
+                if isinstance(k, ast.Constant) and isinstance(k.value, str)
+            ]
+            if "has_fresh_energy_data" in keys:
+                shapes.add(tuple(sorted(keys)))
+        self.assertEqual(
+            shapes,
+            {("has_fresh_energy_data", "msg_content", "vin")},
+            "the state payload gained or lost a key",
+        )
 
 
 class TheFallbackGateHasOneDefinition(unittest.TestCase):

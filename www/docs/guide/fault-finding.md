@@ -151,9 +151,10 @@ it, undoing the fallback's fresher merge. The sensors ping-ponged every
 - the fallback merge is what the MQTT client's partial-merge baseline holds, so a
   later ping cannot undo it;
 - a state whose SoC is more than one percent above what is held, while the car is
-  parked and not charging, is refused as an older snapshot — a parked, idle car's
-  charge can only fall — and refused as *data*, so a fan-out that only resends it
-  still ages into the watchdog's force-upload.
+  parked and not charging **and nothing is plugged in**, is refused as an older
+  snapshot — a parked, idle, unplugged car's charge can only fall — and refused as
+  *data*, so a fan-out that only resends it still ages into the watchdog's
+  force-upload.
 
 In the log that refusal reads:
 
@@ -164,8 +165,35 @@ drain; keeping the newer data
 ```
 
 What is left on the graph is the real trend at whole-percent resolution. A rise of
-more than one percent while parked and not charging does not happen — if one appears,
-that line names it.
+more than one percent while parked, idle and unplugged does not happen — if one
+appears, that line names it.
+
+### A scheduled charge that nobody watched, and the SOC that froze (before 0.6.40)
+
+"A parked car's charge can only fall" has one other exception, and issue
+[#23](https://github.com/xpengtoolkit/xpengtoolkit/issues/23) found it the hard way.
+A charge plan that **starts and finishes between two live frames** never appears as
+charging in either one: the frame held before the night still reads `Scheduled`, and
+the frame that arrives afterwards reads `Connected` with zero power because the
+session is already over. The whole 24 % → 70 % overnight charge was invisible, so the
+rise looked exactly like a replayed snapshot — and because a refused frame is also
+kept out of the watchdog's data clock, the force-upload that had produced the right
+answer healed nothing, and with one escalation per 12 hours the battery sensor sat at
+24 % until the config entry was reloaded by hand.
+
+From **0.6.40** a cable in the port counts as the second legitimate reason for a
+parked car's SoC to rise, read from the incoming frame. That is deliberate: while a
+plan is armed and the car is asleep, its own payload is byte-for-byte identical
+whether or not a cable is in, so the *held* state cannot answer the question and the
+frame that just woke the car can.
+
+One gap is recorded rather than guessed at: a car that reports a finished session as
+`Idle` (`charging_state` 8) with an empty gun reading has no cable evidence either, so
+that combination is still refused. No capture shows a car doing this. If your battery
+percentage freezes at a pre-charge value after an overnight scheduled charge, check
+`sensor.xpeng_<vehicle>_charging_state` for what the car said when it finally
+reported, and say so on #23.
+
 
 ## Nothing is updating
 

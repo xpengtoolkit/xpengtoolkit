@@ -959,10 +959,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return False
         # The energy-side replay check. While a car is parked its odometer does
         # not move, so the check above cannot see a replayed snapshot - but a
-        # parked, idle car's state of charge cannot rise either. Keeping such a
-        # state out of this clock matters for the same reason: a fanout that
-        # only resends an older parked snapshot must still age into the
-        # watchdog's force-upload (see energy_guard.py for the measurement).
+        # parked, idle, unplugged car's state of charge cannot rise either.
+        # Keeping such a state out of this clock matters for the same reason: a
+        # fanout that only resends an older parked snapshot must still age into
+        # the watchdog's force-upload (see energy_guard.py for the measurement,
+        # and issue #23 for why a cable in the port has to be the exception).
         if coordinator.parked_energy_replay(data):
             _LOGGER.warning(
                 "Ignoring a replayed vehicle state from the push fanout: SOC %s%% "

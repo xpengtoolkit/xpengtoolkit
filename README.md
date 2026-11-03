@@ -995,14 +995,24 @@ value over the fallback's merge, so the sensors ping-ponged. Now:
 - the fallback merge is what the MQTT client's partial-merge baseline holds, so
   a later ping cannot undo it;
 - a state whose SoC is more than one percent above what is held, while the car
-  is parked and not charging, is refused as an older snapshot - a parked, idle
-  car's charge can only fall - and it is refused as *data*, so a fan-out that
-  only resends it still ages into the watchdog's force-upload.
+  is parked, not charging and **unplugged**, is refused as an older snapshot - a
+  parked, idle, unplugged car's charge can only fall - and it is refused as
+  *data*, so a fan-out that only resends it still ages into the watchdog's
+  force-upload.
 
 Watch for `Ignoring a vehicle state from the push fanout: SOC ... while parked`
 in the log; what is left on the graph after that is the real trend at
-whole-percent resolution. A rise of more than one percent while parked and not
-charging does not happen - if one appears, that line names it.
+whole-percent resolution. A rise of more than one percent while parked, idle and
+unplugged does not happen - if one appears, that line names it.
+
+A cable in the port is the other legitimate reason a parked car's SoC rises, and
+it is read from the incoming frame rather than the held one: with a charge plan
+armed and the car asleep the two payloads are identical whether or not anything
+is plugged in, so only the waking frame can say. Before 0.6.40 that case was
+refused, which froze the battery percentage through an entire overnight
+scheduled charge (issue [#23](https://github.com/xpengtoolkit/xpengtoolkit/issues/23));
+see [Fault finding](www/docs/guide/fault-finding.md#a-scheduled-charge-that-nobody-watched-and-the-soc-that-froze-before-0640).
+
 
 ### Nothing is updating, and the log does not say why
 
