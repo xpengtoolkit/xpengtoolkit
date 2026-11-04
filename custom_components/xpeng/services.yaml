@@ -360,6 +360,34 @@ set_charge_limit:
           step: 5
           unit_of_measurement: "%"
 
+set_charge_current:
+  name: Set AC charge current
+  description: >-
+    Set the AC charging current limit in amperes. Applies to a session that is
+    already running. The car acknowledges values above its own ceiling without
+    applying them, so read the charge current limit sensor back to confirm.
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
+    current:
+      name: Charge current
+      description: Target AC charging current in amperes (6-32)
+      required: true
+      example: 16
+      selector:
+        number:
+          min: 6
+          max: 32
+          step: 1
+          unit_of_measurement: A
+
 defrost_on:
   name: Defrost ON
   description: Turn on front windshield defrost

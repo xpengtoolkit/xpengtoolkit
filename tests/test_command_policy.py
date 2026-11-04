@@ -366,7 +366,7 @@ class TestEveryCommandIsGated(unittest.TestCase):
         names = re.findall(
             r"^([a-z_]+):$", (PKG / "services.yaml").read_text(), re.M
         )
-        self.assertEqual(len(names), 41, "services.yaml changed shape")
+        self.assertEqual(len(names), 42, "services.yaml changed shape")
         missing = [n for n in names if n not in policy.SERVICE_GROUPS]
         self.assertEqual(missing, [], "services with no declared policy group")
 

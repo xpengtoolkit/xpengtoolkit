@@ -188,6 +188,33 @@ data:
   limit: 80
 ```
 
+### set_charge_current
+
+Sets the AC charge current limit in **amperes** — the car-side equivalent of
+turning the wallbox down, for matching a solar or load-limited supply. It applies
+to a session that is already running, not only the next one.
+
+| Field | Required | Default | Description |
+| --- | --- | --- | --- |
+| `current` | **yes** | – | Target AC current; `6`–`32`, step `1` |
+
+```yaml
+service: xpeng.set_charge_current
+data:
+  current: 10
+  vehicle_entity_id: sensor.my_g6_battery
+```
+
+This is not `set_charge_limit`, which takes a battery **percentage**: same
+service type, different `cmd_type`, different unit. The 6–32 A bounds are the
+single-phase socket convention rather than a per-car measurement, and a value
+above what the car accepts is acknowledged and then ignored — a code 200 means
+the request arrived, not that the limit moved. Read
+`sensor.<car>_charge_current_limit` back to confirm; measured on a G6, 6 A and
+27 A applied within one poll while 32 A was accepted and left the limit at 27.
+The same command is exposed as `number.<car>_charge_current_limit_control`, which
+is what a dashboard or a `number.set_value` automation should use.
+
 ### open_charge_port / close_charge_port
 
 Open and close the charge-port flap. No fields. Export cars have one combined

@@ -44,6 +44,7 @@ SERVICE_CLOSE_TRUNK = "close_trunk"
 SERVICE_OPEN_CHARGE_PORT = "open_charge_port"
 SERVICE_CLOSE_CHARGE_PORT = "close_charge_port"
 SERVICE_SET_CHARGE_LIMIT = "set_charge_limit"
+SERVICE_SET_CHARGE_CURRENT = "set_charge_current"
 SERVICE_DEFROST_ON = "defrost_on"
 SERVICE_DEFROST_OFF = "defrost_off"
 SERVICE_OPEN_WINDOWS = "open_windows"
@@ -147,6 +148,17 @@ SET_CHARGE_LIMIT_SCHEMA = vol.Schema(
     {
         vol.Optional("vehicle_entity_id"): cv.entity_id,
         vol.Required("limit"): vol.All(vol.Coerce(int), vol.Range(min=50, max=100)),
+    }
+)
+
+#: Amperes, not percent: ``cmd_type 7`` on service 4. The 6-32 bound is the
+#: single-phase socket convention this integration offers, not a per-car limit -
+#: a value above what the car takes is acknowledged and ignored, so callers still
+#: have to read ``sensor.*_charge_current_limit`` back.
+SET_CHARGE_CURRENT_SCHEMA = vol.Schema(
+    {
+        vol.Optional("vehicle_entity_id"): cv.entity_id,
+        vol.Required("current"): vol.All(vol.Coerce(int), vol.Range(min=6, max=32)),
     }
 )
 
@@ -564,6 +576,20 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_set_charge_limit(call: ServiceCall) -> None:
         data = _entry_for_call(hass, call)
         await _send_confirmed(hass, 4, {"cmd_type": 2, "cmd_value": call.data["limit"]}, data)
+
+    async def handle_set_charge_current(call: ServiceCall) -> None:
+        """Set the AC charge current limit in amperes for one entry.
+
+        Exists alongside ``number.*_charge_current_limit_control`` because a
+        script driving several cars wants one call per entity id rather than a
+        ``number.set_value`` per vehicle. Same command: service 4, ``cmd_type 7``.
+        The vehicle acknowledges values it will not apply, so the confirmation
+        says the request arrived, not that the limit moved.
+        """
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(
+            hass, 4, {"cmd_type": 7, "cmd_value": int(call.data["current"])}, data
+        )
 
     async def handle_defrost_on(call: ServiceCall) -> None:
         data = _entry_for_call(hass, call)
@@ -986,6 +1012,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     _register(SERVICE_OPEN_CHARGE_PORT, handle_open_charge_port)
     _register(SERVICE_CLOSE_CHARGE_PORT, handle_close_charge_port)
     _register(SERVICE_SET_CHARGE_LIMIT, handle_set_charge_limit, SET_CHARGE_LIMIT_SCHEMA)
+    _register(SERVICE_SET_CHARGE_CURRENT, handle_set_charge_current, SET_CHARGE_CURRENT_SCHEMA)
     _register(SERVICE_DEFROST_ON, handle_defrost_on)
     _register(SERVICE_DEFROST_OFF, handle_defrost_off)
     _register(SERVICE_OPEN_WINDOWS, handle_open_windows)
@@ -1036,6 +1063,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_OPEN_CHARGE_PORT,
         SERVICE_CLOSE_CHARGE_PORT,
         SERVICE_SET_CHARGE_LIMIT,
+        SERVICE_SET_CHARGE_CURRENT,
         SERVICE_DEFROST_ON,
         SERVICE_DEFROST_OFF,
         SERVICE_OPEN_WINDOWS,

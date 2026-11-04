@@ -223,6 +223,7 @@ SERVICE_GROUPS: Mapping[str, str] = {
     "start_charge": GROUP_CHARGING,
     "stop_charge": GROUP_CHARGING,
     "set_charge_limit": GROUP_CHARGING,
+    "set_charge_current": GROUP_CHARGING,
     "open_charge_port": GROUP_CHARGING,
     "close_charge_port": GROUP_CHARGING,
     # Securing actions - these only ever reduce access.
