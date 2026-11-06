@@ -19,6 +19,9 @@ __pycache__/
 .venv/
 venv/
 
+# Local agent metadata
+.serena/
+
 # Compose environment for the standalone companions: it holds the account
 # credentials and the Home Assistant token.
 .env

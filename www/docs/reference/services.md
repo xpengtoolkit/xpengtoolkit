@@ -206,12 +206,14 @@ data:
 ```
 
 This is not `set_charge_limit`, which takes a battery **percentage**: same
-service type, different `cmd_type`, different unit. The 6–32 A bounds are the
-single-phase socket convention rather than a per-car measurement, and a value
-above what the car accepts is acknowledged and then ignored — a code 200 means
-the request arrived, not that the limit moved. Read
-`sensor.<car>_charge_current_limit` back to confirm; measured on a G6, 6 A and
-27 A applied within one poll while 32 A was accepted and left the limit at 27.
+service type, different `cmd_type`, different unit. The 6-32 A range maps to the
+official app's 1-27 wire index: the integration sends `current - 5` and converts
+the reported index back to amperes. Release 0.6.43 fixes the previous five-amp
+mismatch: selecting 20 A used to send index 20, which the app displayed as 25 A.
+A code 200 means the request was accepted; read
+`sensor.<car>_charge_current_limit` back after fresh telemetry to confirm the
+result. If an automation compensated for the old offset, remove that workaround.
+
 The same command is exposed as `number.<car>_charge_current_limit_control`, which
 is what a dashboard or a `number.set_value` automation should use.
 

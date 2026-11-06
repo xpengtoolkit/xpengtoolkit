@@ -25,11 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read the app version
+      - name: Read the app version and image name
         id: app
         run: |
           version=$(python3 -c "import re; print(re.search(r'^version:\s*\"([^\"]+)\"', open('xpeng_renew/config.yaml', encoding='utf-8').read(), re.M).group(1))")
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          owner=$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/$owner/xpeng-renew" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -46,8 +48,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/xpeng-renew:${{ steps.app.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/xpeng-renew:latest
+            ${{ steps.app.outputs.image }}:${{ steps.app.outputs.version }}
+            ${{ steps.app.outputs.image }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.app.outputs.version }}

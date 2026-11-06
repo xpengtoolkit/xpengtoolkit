@@ -18,6 +18,7 @@ from .command_policy import (
     default_policy,
 )
 from .command_execution import async_send_confirmed
+from .charge_current import current_limit_amperes, current_limit_index
 from .const import DOMAIN, UNIT_AMPERE
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
@@ -197,14 +198,9 @@ class XPengChargeLimit(XPengEntity, NumberEntity):
 class XPengChargeCurrentLimit(XPengEntity, NumberEntity):
     """Number to set the AC charge current limit (amperes).
 
-    A different control from :class:`XPengChargeLimit`, however much the two
-    names invite confusion: that one writes ``cmd_type 2`` and carries a
-    percentage, this one writes ``cmd_type 7`` and carries amperes. The app's
-    own handler is ``setChargeElectricityLimit`` (measured on a live G6
-    2026-11-03: 16 A sent, code 200, and ``instant.charge.electric_current_limit``
-    moved 27 -> 16 once the car next reported). Before this existed the only way
-    to reach it was ``xpeng.send_raw_mqtt``, which publishes without awaiting the
-    vehicle's answer - so a rejection looked exactly like success.
+    Unlike the percentage control (cmd_type 2), cmd_type 7 and its telemetry
+    carry a 1..27 index. The official app displays that index + 5 A. Convert at
+    the entity boundary while keeping cached telemetry in its original form.
     """
 
     _policy_group = GROUP_CHARGING
@@ -233,7 +229,10 @@ class XPengChargeCurrentLimit(XPengEntity, NumberEntity):
             .get("instant", {})
             .get("charge", {})
         )
-        return charge.get("electric_current_limit") if charge else None
+        return (
+            current_limit_amperes(charge.get("electric_current_limit"))
+            if charge else None
+        )
 
     async def async_set_native_value(self, value: float) -> None:
         """Await the vehicle's answer; telemetry owns the displayed value.
@@ -248,7 +247,7 @@ class XPengChargeCurrentLimit(XPengEntity, NumberEntity):
         self._guard()
         await async_send_confirmed(
             self.hass, self._mqtt_client, self._vin, 4,
-            {"cmd_type": 7, "cmd_value": int(value)},
+            {"cmd_type": 7, "cmd_value": current_limit_index(value)},
         )
 
 

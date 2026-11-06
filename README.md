@@ -1,3 +1,7 @@
+> **Development fork:** [DrazorV/xpengtoolkit](https://github.com/DrazorV/xpengtoolkit)
+> builds on [xpengtoolkit/xpengtoolkit](https://github.com/xpengtoolkit/xpengtoolkit).
+> Fork changes and vehicle-validation notes are recorded in `docs/FORK_CHANGES.md`.
+
 # Xpengtk
 
 A Home Assistant custom integration for XPENG vehicles (`domain: xpeng`).

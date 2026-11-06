@@ -54,6 +54,7 @@ def _load(name: str, path: pathlib.Path):
     return module
 
 
+_load("xpengtest.charge_current", PKG / "charge_current.py")
 mapping = _load("xpengtest.teslamate_mapping", PKG / "teslamate_mapping.py")
 charge_port = _load("xpengtest.charge_port", PKG / "charge_port.py")
 
@@ -277,6 +278,15 @@ class TestShiftState(unittest.TestCase):
 
 class TestChargingState(unittest.TestCase):
     """Only actually-charging maps to Charging; anything else ends a session."""
+
+    def test_current_limit_is_amperes_not_the_protocol_index(self):
+        for raw, amperes in ((1, 6), (11, 16), (20, 25), (27, 32), (0, None)):
+            with self.subTest(raw=raw):
+                data = json.loads(json.dumps(PARKED))
+                data["msg_content"]["instant"]["charge"]["electric_current_limit"] = raw
+                state = mapping.build_charge_state(telemetry(data))
+                self.assertEqual(state["charge_current_request"], amperes)
+                self.assertEqual(state["charge_current_request_max"], amperes)
 
     def test_charging(self):
         raw = CHARGING["msg_content"]

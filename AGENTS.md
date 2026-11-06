@@ -1,53 +1,29 @@
-# Agent notes
+# Development notes for DrazorV/xpengtoolkit
 
-## Publishing identity - read this before pushing anything
+This is DrazorV's development fork of xpengtoolkit/xpengtoolkit. The user has
+authorized publishing fixes, PRs and releases to this fork. Publish as DrazorV;
+the upstream maintainer's machine-specific xpengtoolkit identity rule does not
+apply to this fork. Never push to the upstream remote without a separate request.
 
-Everything that leaves this machine is published as **xpengtoolkit**, never as the
-maintainer's personal account. Commits are already configured locally as
-`xpengtoolkit <xpengtoolkit@users.noreply.github.com>`; the risk is **authentication**,
-because `gh` and the macOS keychain on the maintainer's Mac can belong to the personal
-account instead.
+- Use codex/ branches and PRs targeting this fork's main branch.
+- Keep main on current upstream plus one consolidated fork patch; see docs/FORK_CHANGES.md.
+  For a requested history realignment, archive the old tip remotely, verify the
+  tree, and update main with an explicit expected-SHA lease rather than a normal
+  PR merge. Preserve release tags and open upstream PR branches.
+- Run `python3 tools/run_tests.py` before merging. Tests run in separate processes.
+- Test dependencies: `python3 -m pip install -r requirements-test.txt`.
+- Preserve domain xpeng, existing unique IDs and config-entry compatibility.
+- Never commit credentials, certificates, captured vehicle traffic or local IDE metadata.
+- Preserve the original MIT notice and record upstream provenance.
+- The integration and credential renewal app are versioned independently. Integration
+  releases must match custom_components/xpeng/manifest.json. Do not change the
+  renewal app's vendored copy without tools/sync_renew_vendor.py and its tests.
+- Changes to command encodings require vehicle evidence. A successful publish or
+  acknowledgement is not confirmation that a physical setting changed.
 
-Before any `git push`, tag or `gh release`, all of these must say `xpengtoolkit`:
+## Upstream translation conventions
 
-```bash
-git log -1 --format='%an <%ae> %cn <%ce>'
-gh auth status
-printf "protocol=https\nhost=github.com\n\n" | git credential fill | grep '^username='
-```
-
-If any of them does not, stop and ask. Never publish with a personal account or token
-"just this once" - a release is publicly attributed to its creator. The full rule is
-in [`.cursor/rules/publish-identity.mdc`](.cursor/rules/publish-identity.mdc).
-
-## Conventions
-
-- Tests are plain scripts, no pytest: `python3 tests/test_config_flow.py`. Some files
-  also carry `unittest` classes, so `python3 -m unittest discover -s tests` runs those.
-- Credentials never enter git: `custom_components/xpeng/certs/*.pem`,
-  `xpeng_tokens.json` and `xpeng_tenant.json` are ignored. Check
-  `git diff --cached --name-only` before committing.
-- Releases: bump `custom_components/xpeng/manifest.json`, commit with a `0.6.x:` title,
-  tag `0.6.x` — bare, no `v`: the `v`-prefixed tags stop at `v0.6.24`, so the bare
-  form has been the convention since 0.6.25 — then
-  `gh release create 0.6.x --title "<the commit title>" --notes-file <file>`. The
-  companion app is versioned separately in `xpeng_renew/config.yaml`; a push touching
-  `xpeng_renew/**` rebuilds its GHCR image automatically (`Renewal image` workflow).
-
-  On this exFAT workspace `git add -A` occasionally misses the file you just wrote
-  (git's stat cache cannot see the coarse mtime change). Re-run
-  `git add custom_components/xpeng/manifest.json` explicitly and check
-  `git show HEAD:custom_components/xpeng/manifest.json | grep version` before
-  tagging - a release whose manifest still says the previous version makes HACS
-  offer the update forever.
-- Translations: `translations/en.json` is the runtime source of truth and
-  `strings.json` the reviewed copy; a test keeps them identical. Every other
-  `translations/<lang>.json` must carry the same 343 keys - run
-  `python3 tools/check_translations.py` after touching any of them, and
-  `python3 tests/test_translations.py` (also part of the normal suite). Rules and
-  the language list: `docs/TRANSLATIONS.md`.
-- Entity names: set a translation key, never `_attr_name` (it wins over the
-  translation and freezes the name in English). Entity ids are pinned to the
-  English name by `XPengEntity.suggested_object_id` via `entity_names.py`, so a
-  translated name must never change an id; do not add a placeholder to an
-  English entity name.
+- Keep translations/en.json and strings.json identical, with the same 344 leaf keys in every language.
+- Run python3 tools/check_translations.py and python3 tests/test_translations.py after translation changes.
+- Set entity translation keys rather than _attr_name; keep English entity IDs through entity_names.py.
+- Follow docs/TRANSLATIONS.md when adding or translating entities.

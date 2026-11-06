@@ -138,6 +138,9 @@ docker compose up -d
 ```
 
 Image tags are the app versions (`:0.1.23`, ...); `:latest` tracks the newest.
+Forks publish the renewal image under the lowercase repository owner, for example
+`ghcr.io/drazorv/xpeng-renew:0.1.23`. To use a fork build, change the renewal
+service's `image` in `docker-compose.yml`; the solver image stays unchanged.
 Building from source still works if you would rather not pull a registry image:
 
 ```bash

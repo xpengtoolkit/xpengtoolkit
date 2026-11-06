@@ -1,42 +1,15 @@
 ---
-description: Publish this repository only as xpengtoolkit - never as the maintainer's personal identity
+description: Publish this development fork only to DrazorV/xpengtoolkit
 alwaysApply: true
 ---
 
-# Publish as xpengtoolkit, never personally
+# Fork publishing identity
 
-This repository is public and belongs to the `xpengtoolkit` account. Everything that
-leaves this machine must carry that identity and nothing else.
+The user has authorized this fork under DrazorV. Commits use DrazorV and the
+GitHub noreply address configured locally. Verify the origin remote and the
+authenticated GitHub login before publishing: both must target DrazorV.
+The upstream remote is for fetching; do not push to it without a separate request.
 
-## Before every commit
-
-- Author and committer must be `xpengtoolkit <xpengtoolkit@users.noreply.github.com>`.
-  The working copy sets this with `git config --local`, which overrides the global
-  personal identity. Do not remove it, and do not commit with `--author` or
-  `git -c user.name=...`.
-- Check: `git log -1 --format='%an <%ae> %cn <%ce>'`
-
-## Before every push, tag or release
-
-- Check which identity will authenticate:
-  `gh auth status` and
-  `printf "protocol=https\nhost=github.com\n\n" | git credential fill | grep '^username='`
-- Both must say `xpengtoolkit`. If either says anything else, STOP and ask. Do not
-  push, tag or create a release with a personal account or token, not even once.
-- A GitHub release is publicly attributed to whoever created it, so this applies to
-  `gh release create` as much as to `git push`.
-
-## Never publish
-
-- Personal email addresses or names, machine paths (`/Users/...`), credentials for
-  the maintainer's own hosts (the HA URL, SSH passwords), or unmasked VINs (see
-  `mask_vin` in `vin_descriptor.py`).
-- Certificate or key material, `xpeng_tokens.json`, `xpeng_tenant.json`. `.gitignore`
-  covers these; confirm with `git diff --cached --name-only` before committing.
-
-## Why this is written down
-
-Measured 2026-10-13: the working copy committed as `xpengtoolkit` correctly, but `gh`
-and the macOS keychain both authenticated as the maintainer's personal account, so a
-plain `git push` - and any release created with `gh` - would have been published as
-that account. The commits were fine; the authorisation was not.
+Never publish private keys, account tokens, raw vehicle captures, unmasked VINs,
+personal email addresses, or local machine paths. Inspect the staged file list
+and diff before every commit. Preserve the original MIT copyright notice.
