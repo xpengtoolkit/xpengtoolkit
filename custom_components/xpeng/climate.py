@@ -60,7 +60,7 @@ class XPengClimate(XPengEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_OFF
         | ClimateEntityFeature.PRESET_MODE
     )
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 16.0
     _attr_max_temp = 32.0
     _attr_preset_modes = [PRESET_NONE, "defrost"]
@@ -94,12 +94,12 @@ class XPengClimate(XPengEntity, ClimateEntity):
             return None
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         value = self._temperature("hvac_inner_temp_float")
         return value if value is not None else self._temperature("hvac_inner_temp")
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         value = self._temperature("hvac_temp_float")
         return value if value is not None else self._temperature("hvac_temp")
 
@@ -133,7 +133,7 @@ class XPengClimate(XPengEntity, ClimateEntity):
             return None
         if self.hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
-        current, target = self.current_temperature, self.target_temperature
+        current, target = self.native_current_temperature, self.native_target_temperature
         if current is None or target is None:
             return HVACAction.IDLE
         if current < target - 0.3:
