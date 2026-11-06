@@ -19,7 +19,7 @@ from .capture import open_recorder
 from .command_gate import policy_for_entry
 from .energy_guard import soc_of
 from .replay_guard import is_replay, odometer_from_state
-from .sentinel_guard import with_previous_tpms
+from .sentinel_guard import with_previous_unreported
 from .watchdog_policy import (
     ESCALATE_AFTER_SECONDS,
     ESCALATE_BACKOFF_SECONDS,
@@ -1041,10 +1041,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # partial-merge baseline has to be told about it - otherwise the next
     # charge-less partial re-broadcasts the pre-merge snapshot over it.
     coordinator.set_baseline_sink(mqtt_client.adopt_state)
-    # A wake frame carries the tyre pressures as 0 before the TPMS sensors
-    # answer; carry the last real readings forward instead of publishing a tyre
-    # that reinflates two seconds later (see sentinel_guard.py).
-    mqtt_client.set_instant_sanitizer(with_previous_tpms)
+    # A wake frame carries the tyre pressures as 0 (or ~700 kPa on a G6) and the
+    # cabin temperature as 87.5 °C before the sensors answer; carry the last real
+    # readings forward instead of publishing a tyre that reinflates two seconds
+    # later, or a cabin at 87.5 °C that stays there once the car sleeps (#25).
+    mqtt_client.set_instant_sanitizer(with_previous_unreported)
 
     # Wire auth failure -> credential refresh
     def _on_auth_failure() -> None:

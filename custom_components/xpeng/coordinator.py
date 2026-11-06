@@ -19,6 +19,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import poll_status
+from .charge_guard import with_previous_charge
 from .charge_port import charge_cable_attached
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
@@ -40,6 +41,7 @@ from .replay_guard import (
     odometer_from_state,
     odometer_from_widget,
 )
+from .sentinel_guard import with_previous_unreported
 from .vin_descriptor import decode as decode_vin, mask_vin
 
 _LOGGER = logging.getLogger(__name__)
@@ -321,6 +323,11 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data = stored.get("data")
         if not isinstance(data, dict):
             return
+        # A cache written before the -1 was filtered (issue #24) can hold the
+        # placeholder as the only value on record. Nothing real is left to carry
+        # forward, so the key is dropped and the entity reads unknown until the
+        # car reports, rather than showing -1 % for a parked car at startup.
+        data = with_previous_charge(data, None)
         self._last_full_data = data
         self.data = data
         # The restored odometer is a real floor: any push below it is a replay of
@@ -461,6 +468,13 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # (`coordValid` false) must not move the car on the map. Carry the last
         # valid position forward, or drop the coordinates when there is none.
         data = with_previous_fix(data, self._last_full_data)
+        # Issue #24: a parked car's frame can carry the cloud's "no data" -1 for
+        # the state of charge (and the charge rate) while its range in the same
+        # frame is valid, so publishing it drew the battery at -1 % and kept it
+        # in the recorder. Carry the last real readings forward; see
+        # charge_guard.py. Done before the state is stored, so nothing
+        # downstream - parked drain, TeslaMate, the recorder - ever sees the -1.
+        data = with_previous_charge(data, self._last_full_data)
         self._last_full_data = data
         self.last_data_timestamp = datetime.now(timezone.utc)
         self.gps_fix.observe(data, self.last_data_timestamp.timestamp())
@@ -976,8 +990,18 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 instant[key] = {**existing, **val}
             else:
                 instant[key] = val
+        # The widget is a second source of the same placeholder readings (#25's
+        # 87.5 °C cabin, the tyres' 0 or ~700 kPa): repair it before the merge is
+        # adopted, against the state the merge is replacing.
+        instant = with_previous_unreported(instant, self._last_full_data)
         msg_content["instant"] = instant
         merged = {**base, "msg_content": msg_content, "vin": self.vin}
+        # The other ingest path can carry the same "no data" -1 (issue #24): the
+        # widget overlays its charge section onto the held state, so a sentinel
+        # there would overwrite a real reading and then be persisted. Repaired
+        # against the state it is replacing, which is the value worth keeping.
+        merged = with_previous_charge(merged, self._last_full_data)
+        msg_content = merged.get("msg_content", msg_content)
         self._last_full_data = merged
         # Teach the MQTT client's partial-merge baseline what the merge just
         # decided. Otherwise the next charge-less partial (a door ping, or the

@@ -1278,9 +1278,10 @@ class XPengMQTTClient:
                 return
 
             # A wake frame carries all four tyre pressures as 0 before the TPMS
-            # sensors answer (see sentinel_guard.py). Carry the last real
-            # readings forward rather than publishing four flat tyres that
-            # reinflate two seconds later; a real (low) pressure is left alone.
+            # sensors answer, and the cabin temperature as 87.5 °C (see
+            # sentinel_guard.py). Carry the last real readings forward rather
+            # than publishing tyres that reinflate two seconds later or a cabin
+            # the sensor never measured; a real (low) pressure is left alone.
             # Injected rather than imported: this module is loaded both as a
             # package and as a top-level module by tools/ and tests/, and has no
             # project imports of its own.
