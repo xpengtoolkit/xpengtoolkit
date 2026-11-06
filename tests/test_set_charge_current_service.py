@@ -8,7 +8,7 @@ room, a loop over entries). This service takes the same optional
 ``vehicle_entity_id`` every other vehicle command takes.
 
 What it must stay identical to is the entity: service 4, ``cmd_type 7``,
-``cmd_value`` in amperes - *not* ``cmd_type 2``, which is the percentage charge
+``cmd_value`` as the 1..27 index for 6..32 A - not ``cmd_type 2``, the percentage charge
 limit and the neighbouring service's job.
 
 Run from the repo root:
@@ -18,6 +18,7 @@ Run from the repo root:
 
 from __future__ import annotations
 
+import __future__
 import ast
 import importlib.util
 import pathlib
@@ -128,6 +129,28 @@ class ServiceFormTests(unittest.TestCase):
         block = _yaml_block("set_charge_current").lower()
         self.assertIn("acknowledges", block)
         self.assertIn("confirm", block)
+
+
+class ServiceEncodingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_service_converts_amperes_and_preserves_vehicle_targeting(self):
+        spec = importlib.util.spec_from_file_location("service_current_encoding", PKG / "charge_current.py")
+        encoding = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(encoding)
+        sent = []
+        target = object()
+
+        async def send(hass, subsystem, content, entry):
+            sent.append((subsystem, content, entry))
+
+        ns = {"_entry_for_call": lambda hass, call: target,
+              "_send_confirmed": send, "hass": object(),
+              "current_limit_index": encoding.current_limit_index}
+        exec(compile(ast.Module(body=[_handler()], type_ignores=[]), "current-service", "exec",
+                     flags=__future__.annotations.compiler_flag), ns)
+        from types import SimpleNamespace
+        for amperes, raw in ((6, 1), (16, 11), (20, 15), (27, 22), (32, 27)):
+            await ns["handle_set_charge_current"](SimpleNamespace(data={"current": amperes}))
+            self.assertEqual(sent[-1], (4, {"cmd_type": 7, "cmd_value": raw}, target))
 
 
 if __name__ == "__main__":

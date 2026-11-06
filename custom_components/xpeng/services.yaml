@@ -364,8 +364,9 @@ set_charge_current:
   name: Set AC charge current
   description: >-
     Set the AC charging current limit in amperes. Applies to a session that is
-    already running. The car acknowledges values above its own ceiling without
-    applying them, so read the charge current limit sensor back to confirm.
+    already running. The integration converts amperes to the car's wire index.
+    The car acknowledges requests before fresh telemetry confirms the result,
+    so read the charge current limit sensor back to confirm.
   fields:
     vehicle_entity_id:
       name: Vehicle entity

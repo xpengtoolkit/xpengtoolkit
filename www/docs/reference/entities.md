@@ -70,7 +70,7 @@ interfaces, raw fan reading and independent cabin measurements remain available.
 | `sensor.xpeng_<vehicle>_charge_current` | sensor | A | `interval.charge.electricity` |
 | `sensor.xpeng_<vehicle>_charge_rate` | sensor | – | Raw `interval.charge.charge_rate`; no unit or device class declared in code |
 | `sensor.xpeng_<vehicle>_discharge_capacity` | sensor | – | Raw `interval.charge.discharge_capacity`; no unit declared in code |
-| `sensor.xpeng_<vehicle>_charge_current_limit` | sensor | A | `instant.charge.electric_current_limit` (`key="charge_limit"`) |
+| `sensor.xpeng_<vehicle>_charge_current_limit` | sensor | A | `instant.charge.electric_current_limit` + 5 A (`key="charge_limit"`); wire index 1-27 |
 | `sensor.xpeng_<vehicle>_max_charge` | sensor | % | `max_range_charge` — the configured charge target the car reports |
 | `sensor.xpeng_<vehicle>_charge_time_remaining` | sensor | min | `time_to_complete_charge_min` |
 | `sensor.xpeng_<vehicle>_slow_charge_port` | sensor (enum) | – | `0` Closed (flap shut, no cable), `1` Open (flap open, nothing in it), `2` Connected (AC cable in); unmapped → `Unknown (n)`. Export cars have one combined CCS2 port, so there is no fast-port sensor |

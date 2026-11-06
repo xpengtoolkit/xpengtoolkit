@@ -17,6 +17,7 @@ from homeassistant.helpers import entity_registry as er
 from .climate_commands import power_payload, send_climate, temperature_payload
 from .hvac_schedules import async_manage_schedule, schedule_entry
 from .charge_port import controls_enabled
+from .charge_current import current_limit_index
 from .command_gate import async_guard_service
 from .command_policy import default_policy, service_group
 from .command_execution import async_send_confirmed
@@ -151,10 +152,8 @@ SET_CHARGE_LIMIT_SCHEMA = vol.Schema(
     }
 )
 
-#: Amperes, not percent: ``cmd_type 7`` on service 4. The 6-32 bound is the
-#: single-phase socket convention this integration offers, not a per-car limit -
-#: a value above what the car takes is acknowledged and ignored, so callers still
-#: have to read ``sensor.*_charge_current_limit`` back.
+#: Public values are 6..32 A; cmd_type 7 encodes them as the 1..27 slider index.
+#: Acceptance alone still does not confirm a new measured current limit.
 SET_CHARGE_CURRENT_SCHEMA = vol.Schema(
     {
         vol.Optional("vehicle_entity_id"): cv.entity_id,
@@ -583,12 +582,14 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         Exists alongside ``number.*_charge_current_limit_control`` because a
         script driving several cars wants one call per entity id rather than a
         ``number.set_value`` per vehicle. Same command: service 4, ``cmd_type 7``.
-        The vehicle acknowledges values it will not apply, so the confirmation
-        says the request arrived, not that the limit moved.
+        Convert the public ampere value to the same index the official app
+        sends. Confirmation says the request arrived, not that the limit moved.
         """
         data = _entry_for_call(hass, call)
         await _send_confirmed(
-            hass, 4, {"cmd_type": 7, "cmd_value": int(call.data["current"])}, data
+            hass, 4,
+            {"cmd_type": 7, "cmd_value": current_limit_index(call.data["current"])},
+            data,
         )
 
     async def handle_defrost_on(call: ServiceCall) -> None:
