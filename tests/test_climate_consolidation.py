@@ -37,10 +37,20 @@ class Features(IntFlag):
     PRESET_MODE = 16
 
 
+class _MockClimateEntity:
+    @property
+    def current_temperature(self):
+        return getattr(self, "native_current_temperature", None)
+
+    @property
+    def target_temperature(self):
+        return getattr(self, "native_target_temperature", None)
+
+
 module(
     "homeassistant.components.climate",
     ATTR_TEMPERATURE="temperature",
-    ClimateEntity=type("ClimateEntity", (), {}),
+    ClimateEntity=_MockClimateEntity,
     ClimateEntityFeature=Features,
     HVACAction=SimpleNamespace(
         OFF="off", IDLE="idle", HEATING="heating", COOLING="cooling"
@@ -91,7 +101,10 @@ class ClimateTests(unittest.IsolatedAsyncioTestCase):
         await e.async_turn_on()
         send.assert_called_with(VIN, 3, {"cmd_type": 1, "cmd_value": 1, "time": 15}, 2)
         self.assertEqual(e.hvac_mode, "off")
+        self.assertEqual(e.native_target_temperature, 22.5)
+        self.assertEqual(e.native_current_temperature, 26)
         self.assertEqual(e.target_temperature, 22.5)
+        self.assertEqual(e.current_temperature, 26)
         e.coordinator.data = state(hvac={"hvac_on": 1, "hvac_temp_float": 22})
         self.assertEqual(e.hvac_mode, "heat_cool")
         await e.async_turn_off()
