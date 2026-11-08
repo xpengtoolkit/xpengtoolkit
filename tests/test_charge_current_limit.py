@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 """Pin the ampere-limit control that only ``send_raw_mqtt`` could reach before.
 
-Two facts this file protects, both measured on a live G6 (VIN tail 800783) on
-2026-11-03:
+The official app and owner measurements establish the current-limit encoding:
 
-* ``service_type 4 / cmd_type 7`` sets the **AC charge current limit in
-  amperes** - the app's ``setChargeElectricityLimit``. Sending
-  ``{"cmd_type": 7, "cmd_value": 16}`` returned code 200 and moved
-  ``instant.charge.electric_current_limit`` from 27 to 16 once the car next
-  uploaded state. It is *not* an A/C power toggle, which is what its name
-  invites people to assume; A/C power is ``service 3 / cmd_type 1``.
+* ``service_type 4 / cmd_type 7`` sends a 1..27 index for 6..32 A. The old
+  implementation passed amperes straight through, so selecting 20 showed 25 A
+  in the app and selecting 27 showed 32 A. Readback uses the same +5 offset.
 * That command's acknowledgement does **not** carry ``electric_current_limit``.
   The reply was ``{"charge_status": 15, "slow_charge_port_status": 2,
   "fast_charge_port_status": 2, "max_range_charge": 90,
@@ -135,7 +131,7 @@ VIN = "SYNTHETIC123456789"
 
 #: The charge section as the car reports it around an ampere-limit change.
 BEFORE = {"electric_current_limit": 27, "max_range_charge": 90}
-AFTER = {"electric_current_limit": 16, "max_range_charge": 90}
+AFTER = {"electric_current_limit": 11, "max_range_charge": 90}
 
 #: Verbatim acknowledgement for cmd_type 7, measured 2026-11-03. Note what is
 #: missing: no electric_current_limit.
@@ -188,7 +184,7 @@ class ChargeCurrentLimitTests(unittest.IsolatedAsyncioTestCase):
         await amps.async_set_native_value(16)
         pct = number.XPengChargeLimit(coordinator(state(AFTER)), client())
         await pct.async_set_native_value(80)
-        self.assertIn((VIN, 4, {"cmd_type": 7, "cmd_value": 16}, 2), SENT)
+        self.assertIn((VIN, 4, {"cmd_type": 7, "cmd_value": 11}, 2), SENT)
         self.assertIn((VIN, 4, {"cmd_type": 2, "cmd_value": 80}, 2), SENT)
         self.assertEqual(len(SENT), 2)
 
@@ -205,7 +201,7 @@ class ChargeCurrentLimitTests(unittest.IsolatedAsyncioTestCase):
 
     def test_reads_the_measured_ampere_field(self):
         self.assertEqual(make().native_value, 16)
-        self.assertEqual(make(value=BEFORE).native_value, 27)
+        self.assertEqual(make(value=BEFORE).native_value, 32)
 
     def test_no_state_means_no_invented_value(self):
         e = number.XPengChargeCurrentLimit(coordinator(None), client())
@@ -220,15 +216,35 @@ class ChargeCurrentLimitTests(unittest.IsolatedAsyncioTestCase):
     async def test_sets_amperes_with_cmd_type_7(self):
         e = make()
         await e.async_set_native_value(16)
-        self.assertEqual(SENT, [(VIN, 4, {"cmd_type": 7, "cmd_value": 16}, 2)])
+        self.assertEqual(SENT, [(VIN, 4, {"cmd_type": 7, "cmd_value": 11}, 2)])
+
+    async def test_owner_regressions_and_slider_endpoints(self):
+        for amperes, index in ((6, 1), (16, 11), (20, 15), (27, 22), (32, 27)):
+            with self.subTest(amperes=amperes):
+                SENT.clear()
+                e = make(value={"electric_current_limit": index})
+                await e.async_set_native_value(amperes)
+                self.assertEqual(SENT, [(VIN, 4, {"cmd_type": 7, "cmd_value": index}, 2)])
+                self.assertEqual(e.native_value, amperes)
+
+    async def test_invalid_amperes_never_send_a_command(self):
+        for amperes in (5, 33, 16.5, float("nan"), True):
+            with self.subTest(amperes=amperes), self.assertRaises(ValueError):
+                await make().async_set_native_value(amperes)
+        self.assertEqual(SENT, [])
+
+    def test_invalid_wire_values_stay_unknown(self):
+        for raw in (None, -1, 0, 28, 32, 1.5, True):
+            with self.subTest(raw=raw):
+                self.assertIsNone(make(value={"electric_current_limit": raw}).native_value)
 
     async def test_the_value_follows_telemetry_not_the_publication(self):
         """A successful send must not make the entity claim the new amps."""
         e = make(value=BEFORE)
         await e.async_set_native_value(16)
         # The ack carries no electric_current_limit, so nothing merged it:
-        # the entity still reads 27 until the car uploads state.
-        self.assertEqual(e.native_value, 27)
+        # The held raw 27 is 32 A until the car uploads a new raw value.
+        self.assertEqual(e.native_value, 32)
         e.coordinator.data = state(AFTER)
         self.assertEqual(e.native_value, 16)
 
@@ -272,8 +288,8 @@ class ChargeCurrentLimitTests(unittest.IsolatedAsyncioTestCase):
         e = make()
         self.assertLess(e._attr_native_min_value, e._attr_native_max_value)
         self.assertEqual(e._attr_native_step, 1)
-        # 6..32 A covers single-phase 16 A/32 A sockets and the observed 27 A.
-        for observed in (16, 27):
+        # The official app's wire indices 1..27 represent 6..32 A.
+        for observed in (6, 16, 20, 27, 32):
             self.assertGreaterEqual(observed, e._attr_native_min_value)
             self.assertLessEqual(observed, e._attr_native_max_value)
 

@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping
 
+from .charge_current import current_limit_amperes
+
 #: TeslaMate converts miles->km with 1.60934; use the same factor so the stored
 #: km values round-trip to what the car reported.
 KM_PER_MILE = 1.609344
@@ -542,8 +544,8 @@ def build_charge_state(
         "trip_charging": False,
         "charge_enable_request": tesla_state == TESLA_CHARGING,
         "user_charge_enable_request": tesla_state == TESLA_CHARGING,
-        "charge_current_request": as_int(charge.get("electric_current_limit")),
-        "charge_current_request_max": as_int(charge.get("electric_current_limit")),
+        "charge_current_request": current_limit_amperes(charge.get("electric_current_limit")),
+        "charge_current_request_max": current_limit_amperes(charge.get("electric_current_limit")),
         "charge_to_max_range": bool(limit is not None and limit >= 100),
         "max_range_charge_counter": 0,
         "managed_charging_active": None,

@@ -31,6 +31,7 @@ import json as _json
 from datetime import datetime as _dt, timezone as _tz
 
 from .charge_port import CHARGE_PORT_CONTROLS_OPTION
+from .charge_current import current_limit_amperes
 
 DOMAIN: Final = "xpeng"
 
@@ -363,6 +364,7 @@ SENSOR_DESCRIPTIONS: tuple[XPengSensorEntityDescription, ...] = (
         translation_key="charge_limit",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         value_path="msg_content.instant.charge.electric_current_limit",
+        value_fn=current_limit_amperes,
         icon="mdi:battery-charging-high",
     ),
     XPengSensorEntityDescription(
