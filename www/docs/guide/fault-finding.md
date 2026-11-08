@@ -194,6 +194,22 @@ percentage freezes at a pre-charge value after an overnight scheduled charge, ch
 `sensor.xpeng_<vehicle>_charging_state` for what the car said when it finally
 reported, and say so on #23.
 
+### Range and Range type flipping between Dynamic and NEDC while parked (before 0.6.44) {#range-flips}
+
+In issue [#28](https://github.com/xpengtoolkit/xpengtoolkit/issues/28), a parked car's `sensor.<vehicle>_range` and `sensor.<vehicle>_range_type` alternated between the car's configured in-car preference (for example **Dynamic**, ~206 km) and **NEDC** (~305 km).
+
+This occurred because the REST widget fallback (`/biz/v5/widget/vehicle/state`), merged when the push stream is quiet for over 5 minutes, reports range using a cloud-fixed standard (NEDC), whereas the vehicle's live MQTT stream reports the driver's configured in-car preference (Dynamic, WLTP, or CLTC). From **0.6.44**, the REST fallback merge preserves the car's configured range standard and reading whenever the widget reports a different standard, while still updating the vehicle's odometer (`total_mileage`).
+
+## Impossible telemetry readings (sentinel placeholders) {#sentinels}
+
+XPENG cloud payloads encode "this sensor has not answered" as sentinel placeholder numbers rather than omitting the field:
+
+- **Cabin temperature at 87.5 °C** ([#25](https://github.com/xpengtoolkit/xpengtoolkit/issues/25)): The wake frame emitted by the vehicle just before sleeping carries `87.5` °C as a placeholder until the HVAC sensor answers. If the car sleeps immediately, that placeholder became the held state for hours.
+- **Tyre pressure at 0 kPa or ~700 kPa** ([#25](https://github.com/xpengtoolkit/xpengtoolkit/issues/25)): Wake-frame placeholders (0 kPa) and sensor placeholder spikes (~701 kPa).
+- **Battery SoC or charge rate at -1** ([#24](https://github.com/xpengtoolkit/xpengtoolkit/issues/24)): Emitted when energy subsystems enter sleep mode while parked.
+
+From **0.6.42**, these sentinel values are guarded on both the MQTT push and REST fallback ingest paths: impossible readings are treated as "not reported", carrying forward the last valid reading (or reporting `unknown` if no reading was ever received). Tyre pressures are bounded to 1–450 kPa, cabin temperature strictly below 87.5 °C, and battery SoC / charge rate non-negative.
+
 
 ## Nothing is updating
 

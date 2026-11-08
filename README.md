@@ -1013,6 +1013,11 @@ refused, which froze the battery percentage through an entire overnight
 scheduled charge (issue [#23](https://github.com/xpengtoolkit/xpengtoolkit/issues/23));
 see [Fault finding](www/docs/guide/fault-finding.md#a-scheduled-charge-that-nobody-watched-and-the-soc-that-froze-before-0640).
 
+From **0.6.44**, the REST widget fallback also respects the vehicle's configured
+in-car range standard: if the car is set to Dynamic, WLTP, or CLTC, the widget's
+cloud-fixed NEDC figures will not overwrite the held range, stopping the range
+sensor from alternating between the two standards (issue [#28](https://github.com/xpengtoolkit/xpengtoolkit/issues/28)).
+
 
 ### Nothing is updating, and the log does not say why
 
