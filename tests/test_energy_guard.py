@@ -592,6 +592,84 @@ class TheMergeTeachesTheMqttBaseline(unittest.TestCase):
         )
         self.assertEqual(adopted, [])
 
+    def test_mismatched_range_standard_preserves_cars_held_range_and_standard(self):
+        """Issue #28: REST widget's fixed NEDC range must not overwrite car's Dynamic range."""
+        held = _state(54)
+        held["msg_content"]["instant"]["odometer"].update(
+            {"total_mileage": 10000, "avalible_driving_distance": 206, "range_type": 4}
+        )
+        adopted: list = []
+        coord = _coordinator_with(held, parked_energy=adopted.append)
+        coord.last_energy_data_timestamp = datetime.now(timezone.utc) - timedelta(hours=2)
+        coord.last_data_timestamp = datetime.now(timezone.utc)
+        coord._merge_widget_state_if_mqtt_stale(
+            {
+                "charge": {"battery_soc": 54},
+                "odometer": {
+                    "total_mileage": 10000,
+                    "avalible_driving_distance": 305,
+                    "range_type": 1,
+                },
+            }
+        )
+        self.assertEqual(len(adopted), 1)
+        odo = adopted[0]["instant"]["odometer"]
+        self.assertEqual(odo["range_type"], 4, "car's Dynamic range_type must be preserved")
+        self.assertEqual(
+            odo["avalible_driving_distance"],
+            206,
+            "car's Dynamic range reading must not be overwritten by widget's NEDC value",
+        )
+        self.assertEqual(odo["total_mileage"], 10000)
+
+    def test_matching_range_standard_updates_range_from_widget(self):
+        """When car and widget use the same standard, widget range updates normally."""
+        held = _state(54)
+        held["msg_content"]["instant"]["odometer"].update(
+            {"total_mileage": 10000, "avalible_driving_distance": 305, "range_type": 1}
+        )
+        adopted: list = []
+        coord = _coordinator_with(held, parked_energy=adopted.append)
+        coord.last_energy_data_timestamp = datetime.now(timezone.utc) - timedelta(hours=2)
+        coord.last_data_timestamp = datetime.now(timezone.utc)
+        coord._merge_widget_state_if_mqtt_stale(
+            {
+                "charge": {"battery_soc": 53},
+                "odometer": {
+                    "total_mileage": 10000,
+                    "avalible_driving_distance": 298,
+                    "range_type": 1,
+                },
+            }
+        )
+        self.assertEqual(len(adopted), 1)
+        odo = adopted[0]["instant"]["odometer"]
+        self.assertEqual(odo["range_type"], 1)
+        self.assertEqual(odo["avalible_driving_distance"], 298)
+
+    def test_widget_provides_range_when_car_has_no_held_range_type(self):
+        """Before any MQTT state establishes a standard, widget range provides initial fallback."""
+        held = _state(54)
+        held["msg_content"]["instant"]["odometer"] = {"total_mileage": 10000}
+        adopted: list = []
+        coord = _coordinator_with(held, parked_energy=adopted.append)
+        coord.last_energy_data_timestamp = datetime.now(timezone.utc) - timedelta(hours=2)
+        coord.last_data_timestamp = datetime.now(timezone.utc)
+        coord._merge_widget_state_if_mqtt_stale(
+            {
+                "charge": {"battery_soc": 54},
+                "odometer": {
+                    "total_mileage": 10000,
+                    "avalible_driving_distance": 305,
+                    "range_type": 1,
+                },
+            }
+        )
+        self.assertEqual(len(adopted), 1)
+        odo = adopted[0]["instant"]["odometer"]
+        self.assertEqual(odo["range_type"], 1)
+        self.assertEqual(odo["avalible_driving_distance"], 305)
+
 
 class TheRestFallbackIsMotionEvidence(unittest.TestCase):
     """Issue #3: a wedged fan-out must not hide a moving car from the watchdog.

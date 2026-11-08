@@ -987,7 +987,38 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for key, val in widget_sections.items():
             existing = instant.get(key)
             if isinstance(existing, dict):
-                instant[key] = {**existing, **val}
+                merged_section = {**existing, **val}
+                if key == "odometer":
+                    held_range_type = existing.get("range_type")
+                    widget_range_type = val.get("range_type")
+                    if (
+                        held_range_type is not None
+                        and widget_range_type is not None
+                        and widget_range_type != held_range_type
+                    ):
+                        # Issue #28: The REST widget fallback reports range in
+                        # a cloud-fixed standard (typically NEDC, range_type=1),
+                        # while the car's push stream reports the driver's
+                        # in-car preference (Dynamic=4, WLTP=2, CLTC=3).
+                        # Overwriting with the widget's mismatched standard
+                        # makes the range and range_type sensors alternate
+                        # between the two standards while parked. Preserve the
+                        # car's configured standard and range reading when the
+                        # widget reports a different standard.
+                        _LOGGER.debug(
+                            "REST fallback: keeping car's range standard %s "
+                            "(%s km) over widget standard %s (%s km)",
+                            held_range_type,
+                            existing.get("avalible_driving_distance"),
+                            widget_range_type,
+                            val.get("avalible_driving_distance"),
+                        )
+                        merged_section["range_type"] = held_range_type
+                        if "avalible_driving_distance" in existing:
+                            merged_section["avalible_driving_distance"] = existing[
+                                "avalible_driving_distance"
+                            ]
+                instant[key] = merged_section
             else:
                 instant[key] = val
         # The widget is a second source of the same placeholder readings (#25's
