@@ -1,6 +1,6 @@
-/* XPENG Vehicle Card v0.1.9 · No dependencies. Uses existing Home Assistant entities. */
+/* XPENG Vehicle Card v0.2.0 · No dependencies. Uses existing Home Assistant entities. */
 (() => {
-  const VERSION = "0.1.9";
+  const VERSION = "0.2.0";
   const ROLES = {
     image: ["image", "vehicle_picture"], battery: ["sensor", "battery"], range: ["sensor", "range"],
     range_type: ["sensor", "range_type"], lock: ["lock", "door_lock"], trunk: ["cover", "trunk"],
@@ -13,6 +13,7 @@
     cabin: ["sensor", "cabin_temperature"], outside: ["sensor", "weather_at_vehicle"],
     odometer: ["sensor", "odometer"], updated: ["sensor", "last_data_update"],
     connected: ["binary_sensor", "mqtt_connected"], feedback: ["sensor", "command_feedback"],
+    location: ["device_tracker", "location"],
     steering: ["select", "steering_wheel_heating"], doors: ["binary_sensor", "doors"],
     bonnet: ["binary_sensor", "bonnet"], driver_door: ["binary_sensor", "driver_door"],
     passenger_door: ["binary_sensor", "passenger_door"], rear_left_door: ["binary_sensor", "rear_left_door"],
@@ -45,22 +46,37 @@
     :host([dark]){--xp-bg:#131c23;--xp-surface:#1c2932;--xp-soft:#26343e;--xp-text:#edf3f7;--xp-muted:#a6b6c2;--xp-line:#30404b;--xp-accent:#bedc88;--xp-tint:#2c3d28;--xp-blue:#8acaff;--xp-hero:linear-gradient(155deg,#294352,#1c2d38 65%,#131c23)}
     *{box-sizing:border-box}ha-card{background:var(--xp-bg);color:var(--xp-text);border:1px solid var(--xp-line);border-radius:28px;overflow:hidden;box-shadow:0 12px 40px #102c4410;position:relative}
     button,input,select{font:inherit}button{cursor:pointer;color:inherit;border:0}button:disabled{cursor:default;opacity:.38}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--xp-blue);outline-offset:3px}button:hover:not(:disabled){filter:brightness(.96)}ha-icon{--mdc-icon-size:23px;flex-shrink:0}h2,h3,p{margin:0}h2{font-size:21px;font-weight:600;letter-spacing:-.6px}h3{font-size:15px;font-weight:600}.muted{color:var(--xp-muted);font-size:12px}.eyebrow{font-size:10px;font-weight:600;letter-spacing:2.5px;color:var(--xp-muted);text-transform:uppercase}.hero{background:var(--xp-hero);padding:26px 26px 0}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{display:flex;gap:12px;align-items:center}.mark{width:30px;height:23px;display:grid;place-items:center;font-size:30px;line-height:1;font-weight:300;transform:scaleX(1.35)}.cloud{display:flex;gap:5px;align-items:center;font-size:10px;color:var(--xp-muted);white-space:nowrap}.dot{width:5px;height:5px;border-radius:50%;background:#8ca45b}.dot.offline{background:#c28e50}.range-row{display:flex;align-items:end;justify-content:space-between;margin-top:26px}.range-value{font-size:47px;line-height:1;font-weight:500;letter-spacing:-2px}.range-unit{font-size:15px;margin-left:6px;color:var(--xp-muted);letter-spacing:0}.range-caption{font-size:10px;color:var(--xp-muted);margin-top:7px;text-transform:uppercase;letter-spacing:1.2px}.battery{text-align:right;min-width:90px}.battery-value{font-size:18px;font-weight:500}.battery-track{height:4px;border-radius:4px;width:88px;background:var(--xp-line);margin:9px 0 5px;overflow:hidden}.battery-fill{height:100%;background:#8ea758;width:var(--level,0%)}.vehicle{height:214px;display:grid;place-items:center;margin:0 -16px;position:relative}.vehicle img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0;mix-blend-mode:multiply}.vehicle .fallback{opacity:.13;--mdc-icon-size:180px}:host([dark]) .vehicle img{mix-blend-mode:normal;border-radius:18px}.hero-status{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;padding-bottom:20px}.pill{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:6px 10px;background:color-mix(in srgb,var(--xp-surface) 75%,transparent);font-size:11px}.pill ha-icon{--mdc-icon-size:14px}.pill.warn{color:#ac5b2f}.hero-bottom{display:flex;justify-content:space-between;gap:8px;padding:0 0 20px;font-size:11px;color:var(--xp-muted)}
-    .workspace{padding:0 22px 20px;min-width:0}.tabs{display:flex;gap:6px;border-bottom:1px solid var(--xp-line);margin-bottom:21px}.tab{background:none;padding:18px 3px 14px;flex:1;font-size:12px;color:var(--xp-muted);border-bottom:2px solid transparent}.tab[aria-selected=true]{border-color:var(--xp-text);color:var(--xp-text);font-weight:600}.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 0 12px}.section-head:first-child{margin-top:0}.actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.action{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:87px;border-radius:17px;background:var(--xp-surface);border:1px solid var(--xp-line);font-size:11px;position:relative;text-align:center;padding:12px 6px}.action .caption{font-size:10px;color:var(--xp-muted)}.action.active{color:var(--xp-accent);background:var(--xp-tint);border-color:color-mix(in srgb,var(--xp-accent) 24%,var(--xp-line))}.action.soft{min-height:70px;background:transparent}.panel{background:var(--xp-surface);border:1px solid var(--xp-line);border-radius:18px;padding:16px;margin-bottom:12px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.row+.row{margin-top:14px}.state{font-size:12px;color:var(--xp-muted);text-align:right}.inline-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.small{background:var(--xp-soft);padding:9px 13px;border-radius:11px;font-size:12px;min-height:36px}.small.active{background:var(--xp-tint);color:var(--xp-accent)}.small.primary{background:var(--xp-text);color:var(--xp-surface)}.empty{padding:30px 10px;color:var(--xp-muted);font-size:13px;text-align:center}.feedback{margin-top:20px;border-top:1px solid var(--xp-line);padding-top:12px;font-size:11px;color:var(--xp-muted);display:flex;gap:8px;align-items:start;line-height:1.5}.feedback ha-icon{--mdc-icon-size:15px;margin-top:1px}.feedback.error{color:#bb523f}.feedback time{display:block;font-size:10px;opacity:.8}.notice{font-size:12px;padding:11px 13px;margin-bottom:14px;background:var(--xp-tint);border-radius:12px;line-height:1.5}.notice.error{background:#b44b3d19;color:#bc5140}.note{font-size:11px;line-height:1.6;color:var(--xp-muted);margin:10px 0}.climate-target{display:flex;align-items:center;justify-content:center;gap:22px;margin:24px 0}.temperature{font-size:48px;letter-spacing:-2px;font-weight:400;line-height:1}.temperature small{font-size:20px;color:var(--xp-muted);letter-spacing:0}.round{width:40px;height:40px;border-radius:50%;background:var(--xp-soft);font-size:21px}.temperature-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--xp-muted);text-align:center;margin-top:8px}.power{background:var(--xp-soft);width:38px;height:38px;border-radius:50%;display:grid;place-items:center}.power.active{background:var(--xp-tint);color:var(--xp-accent)}.select-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;margin-top:14px}.select-row select{max-width:55%;background:var(--xp-soft);color:var(--xp-text);border:0;border-radius:10px;padding:9px;font-size:12px}.seats{display:grid;grid-template-columns:1fr 1fr;gap:9px}.seat{padding:14px 11px;margin:0}.seat-title{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:14px}.seat-title ha-icon{--mdc-icon-size:17px;color:var(--xp-muted)}.levels{display:flex;gap:3px;margin-top:7px}.level{flex:1;min-width:0;min-height:32px;border-radius:8px;background:var(--xp-soft);font-size:10px;padding:5px 1px}.level[aria-pressed=true]{background:var(--xp-tint);color:var(--xp-accent)}.level.heat[aria-pressed=true]{background:#c8792820;color:#bc682a}.level.vent[aria-pressed=true]{background:#348bb51c;color:var(--xp-blue)}.seat-kind{font-size:10px;color:var(--xp-muted);display:flex;align-items:center;gap:4px;margin-top:11px}.seat-kind ha-icon{--mdc-icon-size:14px}.charge-value{font-size:30px;letter-spacing:-1px}.charge-value small{font-size:14px;letter-spacing:0;color:var(--xp-muted)}input[type=range]{width:100%;accent-color:#8ea758;margin:19px 0 10px;min-height:26px;cursor:pointer}.range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--xp-muted)}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{padding:15px;border-radius:14px;background:var(--xp-soft)}.metric-value{font-size:18px;margin-top:7px}.status-list .row{border-bottom:1px solid var(--xp-line);padding:11px 0;margin:0;font-size:12px}.status-list .row:last-child{border:0}.tyres{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tyre{border-radius:14px;background:var(--xp-soft);padding:13px;text-align:center}.tyre strong{font-size:17px;font-weight:500}.tyre small{display:block;margin:5px 0;font-size:10px;color:var(--xp-muted)}.modal-backdrop{position:absolute;inset:0;background:#15202a77;display:flex;align-items:center;justify-content:center;z-index:5;padding:24px;backdrop-filter:blur(4px)}.modal{background:var(--xp-surface);border-radius:22px;padding:24px;max-width:330px;box-shadow:0 10px 60px #0003}.modal p{font-size:13px;line-height:1.7;margin:15px 0;color:var(--xp-muted)}.modal .inline-actions{justify-content:flex-end}
+    .workspace{padding:0 22px 20px;min-width:0}.tabs{display:flex;gap:6px;border-bottom:1px solid var(--xp-line);margin-bottom:21px}.tab{background:none;padding:18px 3px 14px;flex:1;font-size:12px;color:var(--xp-muted);border-bottom:2px solid transparent}.tab[aria-selected=true]{border-color:var(--xp-text);color:var(--xp-text);font-weight:600}.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 0 12px}.section-head:first-child{margin-top:0}.actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.action{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:87px;border-radius:17px;background:var(--xp-surface);border:1px solid var(--xp-line);font-size:11px;position:relative;text-align:center;padding:12px 6px}.action .caption{font-size:10px;color:var(--xp-muted)}.action.active{color:var(--xp-accent);background:var(--xp-tint);border-color:color-mix(in srgb,var(--xp-accent) 24%,var(--xp-line))}.action.soft{min-height:70px;background:transparent}.panel{background:var(--xp-surface);border:1px solid var(--xp-line);border-radius:18px;padding:16px;margin-bottom:12px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.row+.row{margin-top:14px}.state{font-size:12px;color:var(--xp-muted);text-align:right}.inline-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.small{background:var(--xp-soft);padding:9px 13px;border-radius:11px;font-size:12px;min-height:36px}.small.active{background:var(--xp-tint);color:var(--xp-accent)}.small.primary{background:var(--xp-text);color:var(--xp-surface)}.empty{padding:30px 10px;color:var(--xp-muted);font-size:13px;text-align:center}.feedback{margin-top:20px;border-top:1px solid var(--xp-line);padding-top:12px;font-size:11px;color:var(--xp-muted);display:flex;gap:8px;align-items:start;line-height:1.5}.feedback ha-icon{--mdc-icon-size:15px;margin-top:1px}.feedback.error{color:#bb523f}.feedback time{display:block;font-size:10px;opacity:.8}.notice{font-size:12px;padding:11px 13px;margin-bottom:14px;background:var(--xp-tint);border-radius:12px;line-height:1.5;overflow-wrap:anywhere}.notice.error{background:#b44b3d19;color:#bc5140}.note{font-size:11px;line-height:1.6;color:var(--xp-muted);margin:10px 0}.climate-target{display:flex;align-items:center;justify-content:center;gap:22px;margin:24px 0}.temperature{font-size:48px;letter-spacing:-2px;font-weight:400;line-height:1}.temperature small{font-size:20px;color:var(--xp-muted);letter-spacing:0}.round{width:40px;height:40px;border-radius:50%;background:var(--xp-soft);font-size:21px}.temperature-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--xp-muted);text-align:center;margin-top:8px}.power{background:var(--xp-soft);width:38px;height:38px;border-radius:50%;display:grid;place-items:center}.power.active{background:var(--xp-tint);color:var(--xp-accent)}.select-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;margin-top:14px}.select-row select{max-width:55%;background:var(--xp-soft);color:var(--xp-text);border:0;border-radius:10px;padding:9px;font-size:12px}.seats{display:grid;grid-template-columns:1fr 1fr;gap:9px}.seat{padding:14px 11px;margin:0}.seat-title{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:14px}.seat-title ha-icon{--mdc-icon-size:17px;color:var(--xp-muted)}.levels{display:flex;gap:3px;margin-top:7px}.level{flex:1;min-width:0;min-height:32px;border-radius:8px;background:var(--xp-soft);font-size:10px;padding:5px 1px}.level[aria-pressed=true]{background:var(--xp-tint);color:var(--xp-accent)}.level.heat[aria-pressed=true]{background:#c8792820;color:#bc682a}.level.vent[aria-pressed=true]{background:#348bb51c;color:var(--xp-blue)}.seat-kind{font-size:10px;color:var(--xp-muted);display:flex;align-items:center;gap:4px;margin-top:11px}.seat-kind ha-icon{--mdc-icon-size:14px}.charge-value{font-size:30px;letter-spacing:-1px}.charge-value small{font-size:14px;letter-spacing:0;color:var(--xp-muted)}input[type=range]{width:100%;accent-color:#8ea758;margin:19px 0 10px;min-height:26px;cursor:pointer}.range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--xp-muted)}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{padding:15px;border-radius:14px;background:var(--xp-soft)}.metric-value{font-size:18px;margin-top:7px}.status-list .row{border-bottom:1px solid var(--xp-line);padding:11px 0;margin:0;font-size:12px}.status-list .row:last-child{border:0}.tyres{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tyre{border-radius:14px;background:var(--xp-soft);padding:13px;text-align:center}.tyre strong{font-size:17px;font-weight:500}.tyre small{display:block;margin:5px 0;font-size:10px;color:var(--xp-muted)}.modal-backdrop{position:absolute;inset:0;background:#15202a77;display:flex;align-items:center;justify-content:center;z-index:5;padding:24px;backdrop-filter:blur(4px)}.modal{background:var(--xp-surface);border-radius:22px;padding:24px;max-width:330px;box-shadow:0 10px 60px #0003}.modal p{font-size:13px;line-height:1.7;margin:15px 0;color:var(--xp-muted)}.modal .inline-actions{justify-content:flex-end}
     @container (min-width:760px){.layout{display:grid;grid-template-columns:minmax(300px,.95fr) minmax(360px,1.05fr)}.hero{padding:34px 30px 10px;display:flex;flex-direction:column}.vehicle{flex:1;min-height:270px;max-height:370px;margin:10px -20px}.range-row{margin-top:38px}.hero-status{margin-top:auto}.workspace{padding:4px 26px 23px;min-height:570px}.range-value{font-size:58px}.range-caption{font-size:11px}.hero-bottom{padding-bottom:13px}.tabs{margin-bottom:25px}}
     @container (max-width:360px){.hero{padding:20px 18px 0}.workspace{padding:0 14px 16px}.vehicle{height:180px}.range-value{font-size:41px}.action{font-size:10px}.seat{padding:12px 8px}.tabs{gap:0}.tab{font-size:11px}.cloud{font-size:9px}.level{font-size:9px}}
     :host([compact]) .layout{display:block}:host([compact]) .hero{padding:18px 18px 0;display:block}:host([compact]) .range-row{margin-top:14px}:host([compact]) .range-value{font-size:36px}:host([compact]) .range-caption{font-size:9px;margin-top:5px}:host([compact]) .vehicle{height:142px;min-height:0;margin:-12px -8px -6px}:host([compact]) .hero-status{padding-bottom:9px;gap:5px}:host([compact]) .pill{font-size:10px;padding:5px 8px}:host([compact]) .hero-bottom{font-size:10px;padding-bottom:10px}:host([compact]) .workspace{padding:0 15px 15px;min-height:0}:host([compact]) .tabs{margin-bottom:14px}:host([compact]) .tab{padding-top:14px;padding-bottom:11px}:host([compact]) .action{min-height:72px;gap:6px;padding:10px 5px}:host([compact]) .action ha-icon{--mdc-icon-size:22px}:host([compact]) .feedback{margin-top:14px;padding-top:10px}.modal .panel{border:0;padding:0;margin-top:18px}.modal .panel .row{display:none}.modal{width:100%}.level{min-height:36px}
     .temperature-input{width:105px;background:none;color:inherit;font:inherit;letter-spacing:inherit;border:0;outline-offset:3px;text-align:center;padding:0;appearance:textfield;-moz-appearance:textfield}.temperature-input::-webkit-inner-spin-button,.temperature-input::-webkit-outer-spin-button{appearance:none;margin:0}
     @media(prefers-reduced-motion:no-preference){button{transition:background .16s,opacity .16s,filter .16s}}
+    .section-actions{display:flex;align-items:center;gap:7px}.section-actions .small{min-height:30px;padding:6px 11px}.nav-form{display:grid;gap:10px}.nav-search{display:flex;gap:7px;align-items:end}.nav-search .nav-field{flex:1;min-width:0}.nav-search .small{min-height:40px;white-space:nowrap}.nav-field{display:grid;gap:5px;font-size:11px;color:var(--xp-muted)}.map-frame{width:100%;height:280px;border:0;border-radius:14px;background:var(--xp-soft);display:block}.nav-field input{width:100%;background:var(--xp-soft);color:var(--xp-text);border:1px solid var(--xp-line);border-radius:10px;padding:10px;font:inherit;min-height:40px}.nav-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.nav-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:2px}.nav-current{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.nav-current>div{min-width:0}.route{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--xp-line);padding:10px 0}.route:last-child{border:0}.route>div:first-child{min-width:0}.route strong{display:block;font-size:12px;overflow-wrap:anywhere}.route-coords{font-size:10px;color:var(--xp-muted)}.map-link{font-size:11px;color:var(--xp-blue);text-decoration:none;margin-left:8px}.nav-note{font-size:11px;line-height:1.6;color:var(--xp-muted);margin:10px 0}
+    @container (max-width:360px){.nav-grid{grid-template-columns:1fr}.nav-search{display:grid}.nav-search .small{width:100%}.route{flex-wrap:wrap}}
   `;
 
   class XPengVehicleCard extends HTMLElement {
     constructor() {
-      super(); this.attachShadow({mode:"open"}); this._tab = "controls"; this._actions = new Map();
+      super(); this.attachShadow({mode:"open"}); this._tab = "controls"; this._actions = new Map(); this._places = [];
       this.shadowRoot.addEventListener("click", (ev) => {
         const b = ev.target.closest("button"); if (!b || b.disabled) return;
         if(b.dataset.scheduleToggle!==undefined){this._showSchedules=!this._showSchedules;this._render();return;}
         if(b.dataset.scheduleEdit!==undefined){this._editSchedule(b.dataset.scheduleEdit);return;}
         if(b.dataset.scheduleReset!==undefined){this._scheduleDraft=null;this._render();return;}
+        if (b.dataset.navSend !== undefined) { this._sendDraft(); return; }
+        if (b.dataset.navSave !== undefined) { this._addRoute(); return; }
+        if (b.dataset.navFill !== undefined) { this._fillFromLink(); return; }
+        if (b.dataset.navLocation !== undefined) { this._useCarLocation(); return; }
+        if (b.dataset.navRefresh !== undefined) { this._refreshMap(); return; }
+        if (b.dataset.navSearch !== undefined) { this._searchDestinations(); return; }
+        if (b.dataset.navShare !== undefined) { this._shareDraft(); return; }
+        if (b.dataset.navCopyLocation !== undefined) { this._copyCarLocation(); return; }
+        if (b.dataset.routeShare !== undefined) { this._shareRoute(b.dataset.routeShare); return; }
+        if (b.dataset.placeUse !== undefined) { this._usePlace(b.dataset.placeUse); return; }
+        if (b.dataset.placeShare !== undefined) { this._sharePlace(b.dataset.placeShare); return; }
+        if (b.dataset.placesClear !== undefined) { this._clearPlaces(); return; }
+        if (b.dataset.routeDelete !== undefined) { this._deleteRoute(b.dataset.routeDelete); return; }
         if (b.dataset.tab) { this._tab = b.dataset.tab; this._message = null; this._render(); return; }
         if (b.dataset.panel) { this._panel = b.dataset.panel; this._render(); queueMicrotask(() => this.shadowRoot.querySelector("[data-panel-close]")?.focus()); return; }
         if (b.dataset.panelClose !== undefined) { this._panel = null; this._render(); return; }
@@ -83,10 +99,12 @@
         if (key === "preset_mode") this._send({key:"climate", service:"climate.set_preset_mode", data:{preset_mode:ev.target.value}, label:"Set climate preset"});
       });
       this.shadowRoot.addEventListener("input", (ev) => {
+        if (ev.target.dataset.navField) { this._navDraft = {...(this._navDraft||{}), [ev.target.dataset.navField]: ev.target.value}; return; }
         if (ev.target.dataset.key === "charge_limit") this.shadowRoot.querySelector("[data-limit-preview]").textContent = `${ev.target.value}%`;
       });
       this.shadowRoot.addEventListener("focusout", () => { if (this._deferred) { this._deferred = false; queueMicrotask(() => this._render()); } });
       this.shadowRoot.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && ev.target.dataset?.navField === "name") { ev.preventDefault(); this._searchDestinations(); return; }
         if (ev.key === "Escape" && (this._confirmation || this._panel)) { this._confirmation = null; this._panel = null; this._render(); }
         if (ev.key === "Tab" && (this._confirmation || this._panel)) {
           const buttons=[...this.shadowRoot.querySelectorAll('.modal button:not(:disabled)')];
@@ -102,15 +120,31 @@
         if (value && (typeof value !== "string" || !value.startsWith(`${ROLES[key][0]}.`) || !/^[a-z_]+\.[a-z0-9_]+$/.test(value))) throw new Error(`Invalid ${key} entity`);
       }
       if (config.image_entity && !/^image\.[a-z0-9_]+$/.test(config.image_entity)) throw new Error("Choose an image entity");
+      if (config.navigation !== undefined && typeof config.navigation !== "boolean") throw new Error("navigation must be true or false");
+      if (config.google_maps_embed_key !== undefined && typeof config.google_maps_embed_key !== "string") throw new Error("google_maps_embed_key must be a string");
+      if (config.routes !== undefined && !Array.isArray(config.routes)) throw new Error("routes must be a list of destinations");
+      const routes = config.routes === undefined ? undefined : config.routes.map((route, i) => {
+        const normal = this._normaliseRoute(route);
+        if (!normal) throw new Error(`Route ${i + 1} needs a name, latitude and longitude`);
+        return {name:normal.name, latitude:normal.latitude, longitude:normal.longitude, ...(normal.label ? {label:normal.label} : {}), ...(normal.poi_id ? {poi_id:normal.poi_id} : {})};
+      });
       this._scheduleDraft=null;
-      this.config = {...config, entities:{...(config.entities || {})}}; this._snapshot = null; this._render();
+      this._navDraft=this._emptyNavDraft(); this._localRoutes=null; this._routesKey=null; this._places=[];
+      this.config = {...config, navigation: config.navigation === true, google_maps_embed_key: typeof config.google_maps_embed_key === "string" ? config.google_maps_embed_key.trim() : "", ...(routes ? {routes} : {}), entities:{...(config.entities || {})}};
+      if (!this.config.navigation && this._tab === "navigate") this._tab = "controls";
+      this._snapshot = null; this._render();
     }
     set hass(hass) {
       this._hass = hass; if (!this.config) return;
-      const next = Object.keys(ROLES).map(k => this._entity(k));
+      // The tracker can update every few seconds; it must not redraw the card.
+      const next = Object.keys(ROLES).filter(k => k !== "location").map(k => this._entity(k));
       const dark = this.config.theme === "dark" || (this.config.theme !== "light" && !!hass.themes?.darkMode);
       if (this._snapshot && this._dark === dark && next.every((s,i) => s === this._snapshot[i])) return;
       this._snapshot = next; this._dark = dark;
+      // A full redraw replaces the Google Map iframe and reloads it. The
+      // Navigate tab's own actions call _render directly, so background state
+      // updates must not rebuild it.
+      if (this._tab === "navigate") return;
       if (this.shadowRoot.activeElement?.matches("input,select")) { this._deferred = true; return; }
       this._render();
     }
@@ -153,14 +187,288 @@
       return `${this._formatState(key,digits)}${known(e) && e.attributes.unit_of_measurement ? " " + e.attributes.unit_of_measurement : ""}`;
     }
     _features(key, bit) { return this._available(key) && !!(Number(this._entity(key)?.attributes.supported_features || 0) & bit); }
+    _emptyNavDraft() { return {name:"", link:"", latitude:"", longitude:"", label:""}; }
+    _vehicleEntityId() {
+      return [this._id("location"), this._id("image"), this._id("lock"), this._id("climate")]
+        .find(id => id && this._hass?.states?.[id]) || null;
+    }
+    _routesStorageKey() {
+      const prefix = this._prefix();
+      return `xpeng-vehicle-card:routes:${prefix || this._id("image") || "default"}`;
+    }
+    _storage() { try { return globalThis.localStorage; } catch { return null; } }
+    _navText(value) {
+      const text = String(value ?? "").trim();
+      if (/["\\]/.test(text) || /[\u0000-\u001f]/.test(text)) throw new Error("Remove quotation marks, backslashes and control characters from navigation text.");
+      if (text.length > 120) throw new Error("Keep navigation text under 120 characters.");
+      return text;
+    }
+    _normaliseRoute(route, id) {
+      let name, label = "", poiId = "";
+      try {
+        name = this._navText(route?.name);
+        label = this._navText(route?.label);
+        poiId = this._navText(route?.poi_id);
+      } catch { return null; }
+      const latitude = numeric(route?.latitude), longitude = numeric(route?.longitude);
+      if (!name || latitude === null || longitude === null || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+      const key = id || route?.id || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+      return {id:String(key), name, latitude, longitude, ...(label ? {label} : {}), ...(poiId ? {poi_id:poiId} : {})};
+    }
+    _loadLocalRoutes() {
+      const key = this._routesStorageKey();
+      if (this._routesKey === key && this._localRoutes) return this._localRoutes;
+      this._routesKey = key;
+      let values = [];
+      try { const raw = this._storage()?.getItem(key); if (raw) values = JSON.parse(raw); } catch { values = []; }
+      this._localRoutes = Array.isArray(values) ? values.map(v => this._normaliseRoute(v, v?.id)).filter(Boolean).slice(0,20) : [];
+      return this._localRoutes;
+    }
+    _saveLocalRoutes(routes) {
+      this._localRoutes = routes;
+      try { this._storage()?.setItem(this._routesStorageKey(), JSON.stringify(routes)); }
+      catch { this._message = {text:"Saved for this session only; this browser blocked local storage.", error:true}; }
+    }
+    _configRoutes() { return (this.config.routes || []).map((route, i) => ({...route, id:route.id || `pinned-${i}`, pinned:true})); }
+    _allRoutes() {
+      const seen = new Set(), routes = [];
+      for (const route of [...this._configRoutes(), ...this._loadLocalRoutes()]) {
+        const key = `${route.name}|${route.latitude}|${route.longitude}`;
+        if (seen.has(key)) continue;
+        seen.add(key); routes.push(route);
+      }
+      return routes;
+    }
+    _parseMapsLink(text) {
+      const raw = String(text || "").trim();
+      if (!raw) throw new Error("Paste a Google Maps link first.");
+      if (/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(raw)) throw new Error("Short Google Maps links cannot be read in the browser. Open it once, then copy the full google.com/maps URL.");
+      const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      let url; try { url = new URL(candidate); } catch { throw new Error("That does not look like a Google Maps link."); }
+      if (!/(^|\.)google\.[a-z.]+$/i.test(url.hostname)) throw new Error("Use a google.com/maps link.");
+      let decoded = candidate;
+      try { decoded = decodeURIComponent(candidate.replace(/\+/g, " ")); } catch { decoded = candidate.replace(/\+/g, " "); }
+      const coords = decoded.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
+        || decoded.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+        || decoded.match(/[?&](?:destination|q|query|daddr|ll)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+      if (!coords) throw new Error("That link has no coordinates. Open it in Google Maps and copy a URL containing @latitude,longitude.");
+      const latitude = Number(coords[1]), longitude = Number(coords[2]);
+      if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new Error("Those coordinates are out of range.");
+      let name = "";
+      const place = decoded.match(/\/maps\/place\/([^/@?]+)/);
+      if (place) name = place[1].replace(/\+/g, " ").trim();
+      if (!name) {
+        const query = decoded.match(/[?&](?:destination|q|query|daddr)=([^&]+)/);
+        const value = query?.[1]?.replace(/\+/g, " ").trim();
+        if (value && !/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(value)) name = value;
+      }
+      return {name, latitude, longitude};
+    }
+    _fillFromLink() {
+      try {
+        const parsed = this._parseMapsLink((this._navDraft || this._emptyNavDraft()).link);
+        this._navDraft = {...this._navDraft, ...(parsed.name ? {name:parsed.name} : {}), latitude:String(parsed.latitude), longitude:String(parsed.longitude)};
+        this._message = {text:"Filled from the Google Maps link."};
+      } catch (error) { this._message = {text:error.message, error:true}; }
+      this._render();
+    }
+    _useCarLocation() {
+      const e = this._entity("location"), latitude = numeric(e?.attributes.latitude), longitude = numeric(e?.attributes.longitude);
+      if (latitude === null || longitude === null) { this._message = {text:"The car has not reported a location yet.", error:true}; this._render(); return; }
+      const draft = this._navDraft || this._emptyNavDraft();
+      this._navDraft = {...draft, name:draft.name || "Current location", latitude:String(latitude), longitude:String(longitude)};
+      this._message = {text:"Using the car's current position."}; this._render();
+    }
+    _readNavDraft() {
+      const draft = this._navDraft || {};
+      let name, label;
+      try { name = this._navText(draft.name); label = this._navText(draft.label); }
+      catch (error) { this._message = {text:error.message, error:true}; this._render(); return null; }
+      const latitude = numeric(draft.latitude), longitude = numeric(draft.longitude);
+      if (!name) { this._message = {text:"Give the destination a name.", error:true}; this._render(); return null; }
+      if (latitude === null || longitude === null || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) { this._message = {text:"Enter a valid latitude and longitude.", error:true}; this._render(); return null; }
+      return {name, latitude, longitude, ...(label ? {label} : {})};
+    }
+    _navAction(route) {
+      const data = {name:route.name, latitude:route.latitude, longitude:route.longitude};
+      if (route.label) data.label = route.label;
+      if (route.poi_id) data.poi_id = route.poi_id;
+      return this._action("image", "xpeng.send_navigation", data, `Send ${route.name} to the car`);
+    }
+    _sendDraft() { const route = this._readNavDraft(); if (route) return this._send(this._navAction(route)); }
+    _addRoute() {
+      const route = this._readNavDraft(); if (!route) return;
+      const routes = this._loadLocalRoutes();
+      if (routes.some(r => r.name.toLowerCase() === route.name.toLowerCase() && r.latitude === route.latitude && r.longitude === route.longitude)) { this._message = {text:"That route is already saved.", error:true}; this._render(); return; }
+      if (routes.length >= 20) { this._message = {text:"Remove a saved route before adding another.", error:true}; this._render(); return; }
+      const entry = this._normaliseRoute(route);
+      this._saveLocalRoutes([...routes, entry]);
+      if (!this._message?.error) this._message = {text:`Saved “${entry.name}”.`};
+      this._render();
+    }
+    _deleteRoute(id) {
+      this._saveLocalRoutes(this._loadLocalRoutes().filter(route => route.id !== id));
+      this._message = {text:"Route removed."}; this._render();
+    }
+    _mapsHref(latitude, longitude) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`; }
+    _mapsSearchHref(query) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(String(query))}`; }
+    _routeMap(key, latitude, longitude, draft) {
+      if (!key) return "";
+      let src = "", label = "";
+      const destLat = numeric(draft?.latitude), destLon = numeric(draft?.longitude);
+      if (latitude !== null && longitude !== null && destLat !== null && destLon !== null) {
+        src = `https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(key)}&origin=${encodeURIComponent(`${latitude},${longitude}`)}&destination=${encodeURIComponent(`${destLat},${destLon}`)}&mode=driving`;
+        label = "Route preview";
+      } else if (latitude !== null && longitude !== null) {
+        src = `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${encodeURIComponent(`${latitude},${longitude}`)}&zoom=16`;
+        label = "Car position";
+      } else return "";
+      return `<div class="panel"><div class="row"><h3>Map</h3><span class="muted">${label}</span></div><iframe class="map-frame" src="${esc(src)}" title="Google map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe><div class="inline-actions"><button class="small" type="button" data-nav-refresh>Refresh map with current location</button></div><p class="nav-note">Google's route preview. The car's built-in navigation plans its own route; this map is not sent to the car.</p></div>`;
+    }
+    _shareUrl(route) { return this._mapsHref(route.latitude, route.longitude); }
+    async _copyText(text) {
+      const write = globalThis.navigator?.clipboard?.writeText;
+      if (typeof write === "function") {
+        try { await write.call(globalThis.navigator.clipboard, text); return true; } catch { /* fall through */ }
+      }
+      try {
+        const area = globalThis.document?.createElement("textarea");
+        if (!area) return false;
+        area.value = text; area.setAttribute("readonly", "");
+        area.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+        (globalThis.document.body || this.shadowRoot).appendChild(area);
+        area.select();
+        const ok = globalThis.document.execCommand?.("copy");
+        area.remove();
+        return !!ok;
+      } catch { return false; }
+    }
+    async _copyMessage(url) {
+      if (await this._copyText(url)) this._message = {text:"Google Maps link copied."};
+      else this._message = {text:`Copy failed. Open this link instead: ${url}`, error:true};
+      this._render();
+    }
+    _searchMaps() {
+      const draft = this._navDraft || this._emptyNavDraft();
+      const name = String(draft.name || "").trim(), link = String(draft.link || "").trim();
+      if (!name && !link) { this._message = {text:"Enter a place or address to search.", error:true}; this._render(); return; }
+      const href = name ? this._mapsSearchHref(name) : (/^https?:\/\//i.test(link) ? link : this._mapsSearchHref(link));
+      const open = globalThis.open || globalThis.window?.open;
+      if (typeof open === "function") open(href, "_blank", "noopener");
+      this._message = {text:"Opened Google Maps search. Pick a place, copy its URL, then paste it above and press Fill from link."};
+      this._render();
+    }
+    async _refreshMap() {
+      if (this._busy) return;
+      const entity = this._id("refresh") || this._id("wake");
+      if (!entity || !this._hass.services?.button?.press) {
+        this._message = {text:"Using the latest recorded vehicle position."}; this._render(); return;
+      }
+      const before = this._entity("location")?.last_updated;
+      this._busy = true; this._message = {text:"Requesting a fresh vehicle location…"}; this._render();
+      let changed = false;
+      try {
+        await this._hass.callService("button", "press", {}, {entity_id:entity});
+        const started = Date.now(), timeout = this._mapRefreshTimeoutMs ?? 30000, poll = this._mapRefreshPollMs ?? 1000;
+        while (Date.now() - started < timeout) {
+          await new Promise(resolve => setTimeout(resolve, poll));
+          const now = this._entity("location")?.last_updated;
+          if (now && now !== before) { changed = true; break; }
+        }
+      } catch (error) {
+        this._message = {text:error.message || "Vehicle refresh failed.", error:true};
+        this._busy = false; this._render(); return;
+      }
+      this._busy = false;
+      this._message = {text:changed ? "Map refreshed with the latest vehicle position." : "Refresh requested; the car has not reported a new position yet."};
+      this._render();
+    }
+    _searchDestinations() {
+      if (this._busy) return;
+      if (this._hass.services?.rest_command?.google_places_search) return this._searchPlaces();
+      return this._searchMaps();
+    }
+    async _searchPlaces() {
+      if (this._busy) return;
+      const draft = this._navDraft || this._emptyNavDraft();
+      const name = String(draft.name || "").trim(), link = String(draft.link || "").trim();
+      const query = name || (/^https?:\/\//i.test(link) ? "" : link);
+      if (!query) { this._message = {text:"Enter a place or address to search.", error:true}; this._render(); return; }
+      if (!this._hass.services?.rest_command?.google_places_search) { this._searchMaps(); return; }
+      this._busy = true; this._message = {text:`Searching Google Places for “${query}”…`}; this._render();
+      try {
+        if (typeof this._hass.callWS !== "function") throw new Error("This Home Assistant frontend cannot return service responses.");
+        const result = await this._hass.callWS({
+          type: "call_service",
+          domain: "rest_command",
+          service: "google_places_search",
+          service_data: {query, limit:5},
+          return_response: true,
+        });
+        let data = result?.response ?? result?.service_response ?? result;
+        if (data && typeof data === "object" && data.content !== undefined) data = data.content;
+        if (typeof data === "string") { try { data = JSON.parse(data); } catch { data = {}; } }
+        const places = Array.isArray(data?.places) ? data.places : [];
+        this._places = places.slice(0,5).map(place => {
+          const latitude = numeric(place.location?.latitude), longitude = numeric(place.location?.longitude);
+          return {
+            name:String(place.displayName?.text || place.name || "Place"),
+            address:String(place.formattedAddress || ""),
+            latitude, longitude,
+            place_id:String(place.id || ""),
+            maps_url:String(place.googleMapsUri || (latitude !== null && longitude !== null ? this._mapsHref(latitude, longitude) : "")),
+          };
+        }).filter(place => place.latitude !== null && place.longitude !== null);
+        this._message = this._places.length ? {text:`Found ${this._places.length} place${this._places.length === 1 ? "" : "s"}.`} : {text:`No places found for “${query}”. Try a nearby suburb or a different name.`, error:true};
+      } catch (error) {
+        this._message = {text:error.message || "Google Places search failed.", error:true};
+      } finally {
+        this._busy = false; this._render();
+        queueMicrotask(() => this.shadowRoot.querySelector("[data-places-results]")?.scrollIntoView({block:"nearest", behavior:"smooth"}));
+      }
+    }
+    _usePlace(index) {
+      const place = this._places[Number(index)]; if (!place) return;
+      this._navDraft = {...this._navDraft, name:place.name, latitude:String(place.latitude), longitude:String(place.longitude)};
+      this._message = {text:`Using ${place.name}.`}; this._render();
+    }
+    _sharePlace(index) {
+      const place = this._places[Number(index)]; if (!place) return;
+      this._copyMessage(place.maps_url || this._mapsHref(place.latitude, place.longitude));
+    }
+    _clearPlaces() { this._places = []; this._render(); }
+    async _shareDraft() {
+      const draft = this._navDraft || {};
+      const latitude = numeric(draft.latitude), longitude = numeric(draft.longitude);
+      let url;
+      if (latitude !== null && longitude !== null && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+        url = this._mapsHref(latitude, longitude);
+      } else {
+        const name = String(draft.name || "").trim(), link = String(draft.link || "").trim();
+        if (name) url = this._mapsSearchHref(name);
+        else if (/^https?:\/\//i.test(link)) url = link;
+        else { this._message = {text:"Enter a name, coordinates or a Google Maps link first.", error:true}; this._render(); return; }
+      }
+      await this._copyMessage(url);
+    }
+    async _shareRoute(id) {
+      const route = this._allRoutes().find(r => String(r.id) === String(id));
+      if (!route) { this._message = {text:"That route is no longer saved.", error:true}; this._render(); return; }
+      await this._copyMessage(this._shareUrl(route));
+    }
+    async _copyCarLocation() {
+      const e = this._entity("location"), latitude = numeric(e?.attributes.latitude), longitude = numeric(e?.attributes.longitude);
+      if (latitude === null || longitude === null) { this._message = {text:"The car has not reported a location yet.", error:true}; this._render(); return; }
+      await this._copyMessage(this._mapsHref(latitude, longitude));
+    }
     _human(key) {
       const s = this._state(key); return ({on:"On",off:"Off",locked:"Locked",unlocked:"Unlocked",open:"Open",closed:"Closed",locking:"Locking…",unlocking:"Unlocking…",opening:"Opening…",closing:"Closing…"})[s] || s;
     }
     _action(key, service, data = {}, label, confirm = false) { return {key, service, data, label, confirm}; }
     _btn(label, glyph, action, options = {}) {
       const id = String(this._actions.size); this._actions.set(id, action);
-      const disabled = options.disabled || this._busy || !this._available(action.key);
-      return `<button type="button" class="${options.small ? "small" : "action"}${options.active ? " active" : ""}${options.soft ? " soft" : ""}" data-action="${id}" ${disabled ? "disabled" : ""} ${options.pressed ? `aria-pressed="${!!options.active}"` : ""}>${glyph ? icon(glyph) : ""}<span>${esc(label)}</span>${options.caption ? `<span class="caption">${esc(options.caption)}</span>` : ""}</button>`;
+      const disabled = options.disabled || this._busy || (!options.alwaysAvailable && !this._available(action.key));
+      return `<button type="button" class="${options.small ? "small" : "action"}${options.active ? " active" : ""}${options.soft ? " soft" : ""}" data-action="${id}" ${disabled ? "disabled" : ""} ${options.ariaLabel ? `aria-label="${esc(options.ariaLabel)}"` : ""} ${options.pressed ? `aria-pressed="${!!options.active}"` : ""}>${glyph ? icon(glyph) : ""}<span>${esc(label)}</span>${options.caption ? `<span class="caption">${esc(options.caption)}</span>` : ""}</button>`;
     }
     _run(a) {
       if (this._busy) return;
@@ -171,7 +479,7 @@
     }
     _validate(a) {
       const e = this._entity(a.key), id = this._id(a.key);
-      if (!e || e.state === "unavailable" || a.entityId && a.entityId !== id) throw new Error("This vehicle control is unavailable.");
+      if (!a.service.startsWith("xpeng.") && (!e || e.state === "unavailable" || a.entityId && a.entityId !== id)) throw new Error("This vehicle control is unavailable.");
       const [domain, service] = a.service.split(".");
       if(CLIMATE_MODES.some(m=>m[0]===a.key)&&e.attributes.control_allowed===false)throw new Error("This climate mode is read-only or unsupported.");
       if(a.key==="schedules"&&domain==="xpeng"){
@@ -182,6 +490,15 @@
         }
         if(["update_hvac_schedule","delete_hvac_schedule"].includes(service)&&!this._scheduleRecords().some(x=>String(x.appointment_id)===String(a.data.appointment_id)))throw new Error("This schedule no longer exists.");
         return {id,domain,service,targetless:true};
+      }
+      if (a.service.startsWith("xpeng.")) {
+        if (a.service !== "xpeng.send_navigation" || !this._hass.services?.xpeng?.send_navigation) throw new Error("This integration does not expose send_navigation. Update the integration first.");
+        const name = String(a.data.name || "").trim(), latitude = numeric(a.data.latitude), longitude = numeric(a.data.longitude);
+        if (!name) throw new Error("Give the destination a name.");
+        if (latitude === null || longitude === null || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new Error("Enter a valid latitude and longitude.");
+        const vehicle = this._vehicleEntityId();
+        if (!vehicle) throw new Error("This card cannot identify the car.");
+        return {id:vehicle, domain, service, targetless:true, data:{...a.data, name, latitude, longitude, vehicle_entity_id:vehicle}};
       }
       if (domain !== ROLES[a.key][0] || !this._hass.services?.[domain]?.[service]) throw new Error("This Home Assistant action is unavailable.");
       if (domain === "cover" && !this._features(a.key, service === "open_cover" ? 1 : 2)) throw new Error("This cover action is not enabled for your car.");
@@ -203,10 +520,10 @@
     async _send(a) {
       if (this._busy) return;
       try {
-        const {id,domain,service,targetless} = this._validate(a);
+        const {id,domain,service,targetless,data} = this._validate(a);
         this._panel = null; this._busy = true; this._message = {text:`${a.label || "Command"} · sending…`}; this._render();
-        await this._hass.callService(domain, service, {...a.data}, targetless?undefined:{entity_id:id});
-        this._message = {text:"Request sent. Vehicle feedback and measured state appear below."};
+        await this._hass.callService(domain, service, {...(data || a.data)}, targetless?undefined:{entity_id:id});
+        this._message = {text:a.service === "xpeng.send_navigation" ? "Destination sent. The car plans the route; the card appears on the head unit when it is received." : "Request sent. Vehicle feedback and measured state appear below."};
       } catch (error) { this._message = {text:error.message || "The vehicle command failed.", error:true}; }
       finally { this._busy = false; this._render(); }
     }
@@ -349,13 +666,50 @@
     _status() {
       return `<div class="section-head"><h3>Vehicle status</h3><span class="muted">${esc(this._display("odometer"))}</span></div><div class="panel status-list">${this._statusRow("lock","Door lock",{locked:"Locked",unlocked:"Unlocked"})}${[["driver_door","Driver door"],["passenger_door","Passenger door"],["rear_left_door","Rear left door"],["rear_right_door","Rear right door"],["bonnet","Bonnet"]].map(([k,l])=>this._statusRow(k,l,{on:"Open",off:"Closed"})).join("")}${this._statusRow("trunk","Trunk")}${this._statusRow("windows","Windows")}${this._statusRow("cabin","Cabin temperature")}${this._statusRow("outside","Outside temperature")}</div><div class="section-head"><h3>Tyre pressures</h3><span class="muted">Latest reported</span></div><div class="tyres">${[["tyre_fl","Front left"],["tyre_fr","Front right"],["tyre_rl","Rear left"],["tyre_rr","Rear right"]].filter(([k])=>this._entity(k)).map(([k,l])=>`<div class="tyre"><small>${l}</small><strong>${esc(this._display(k,this._entity(k)?.attributes.unit_of_measurement === "bar" ? 2 : 1))}</strong></div>`).join("")}</div><div class="panel status-list" style="margin-top:12px">${this._statusRow("software","Software")}<div class="row"><span>Vehicle snapshot</span><span class="state">${esc(this._age(this._entity("updated")?.state))}</span></div></div><div class="inline-actions">${this._entity("wake")?this._btn("Wake vehicle","power",this._action("wake","button.press",{},"Wake vehicle",true),{small:true}):""}</div>`;
     }
+    _navigate() {
+      const available = !!this._hass.services?.xpeng?.send_navigation;
+      const inline = !!this._hass.services?.rest_command?.google_places_search;
+      const embedKey = this.config.google_maps_embed_key || "";
+      const tracker = this._entity("location");
+      const latitude = numeric(tracker?.attributes.latitude), longitude = numeric(tracker?.attributes.longitude);
+      const draft = this._navDraft || this._emptyNavDraft();
+      const routes = this._allRoutes();
+      const location = latitude === null || longitude === null
+        ? '<span class="route-coords">Not reported yet</span>'
+        : `<span class="route-coords">${latitude.toFixed(5)}, ${longitude.toFixed(5)}</span><a class="map-link" href="${esc(this._mapsHref(latitude, longitude))}" target="_blank" rel="noreferrer">Open in Google Maps</a>`;
+      return `<div class="section-head"><h3>Navigation</h3><div class="section-actions"><span class="muted">${available ? "Destination push" : "Integration update required"}</span><button class="small" type="button" data-nav-refresh>Refresh</button></div></div>
+        <div class="panel"><div class="nav-current"><div><h3>Car position</h3>${location}</div>${latitude !== null && longitude !== null ? '<div class="inline-actions"><button class="small" type="button" data-nav-copy-location>Copy link</button><button class="small" type="button" data-nav-location>Use as destination</button></div>' : ""}</div></div>
+        ${this._routeMap(embedKey, latitude, longitude, draft)}
+        ${!embedKey ? '<p class="nav-note">Add a Google Maps Embed API <strong>browser</strong> key in the card editor to show a map and route preview. Use a key restricted to this HA URL; do not use the server Places key.</p>' : ""}
+        <div class="panel"><div class="row"><h3>Send a destination</h3><span class="state">${available ? "Ready" : "Unavailable"}</span></div>
+          ${available ? "" : '<p class="nav-note">This integration does not expose <code>xpeng.send_navigation</code>. Update the integration so the service is available.</p>'}
+          <div class="nav-form">
+            <div class="nav-search"><label class="nav-field">Destination name or search<input type="text" data-nav-field="name" value="${esc(draft.name)}" placeholder="Work or Coles Alexandria" enterkeyhint="search" autocomplete="off"></label><button class="small" type="button" data-nav-search>${inline ? "Search places" : "Search Google Maps"}</button></div>
+            <label class="nav-field">Google Maps link<input type="text" data-nav-field="link" value="${esc(draft.link)}" placeholder="https://www.google.com/maps/place/..."></label>
+            <div class="nav-actions"><button class="small" type="button" data-nav-fill>Fill from link</button></div>
+            <div class="nav-grid"><label class="nav-field">Latitude<input type="number" step="any" min="-90" max="90" data-nav-field="latitude" value="${esc(draft.latitude)}" placeholder="-33.8688"></label><label class="nav-field">Longitude<input type="number" step="any" min="-180" max="180" data-nav-field="longitude" value="${esc(draft.longitude)}" placeholder="151.2093"></label></div>
+            <label class="nav-field">Label (optional)<input type="text" data-nav-field="label" value="${esc(draft.label)}" placeholder="Home"></label>
+            <div class="nav-actions"><button class="small primary" type="button" data-nav-send ${available ? "" : "disabled"}>Send to car</button><button class="small" type="button" data-nav-save>Save route</button><button class="small" type="button" data-nav-share>Copy share link</button></div>
+          </div>
+          ${inline ? '<p class="nav-note">Inline results come from Google Places through the local <code>rest_command.google_places_search</code>; the Google API key stays in <code>secrets.yaml</code>.</p>' : '<p class="nav-note">Search opens Google Maps in a new tab. Pick a place, copy its URL, paste it above and press Fill from link. For inline results, add <code>rest_command.google_places_search</code> and a Google Places API key in <code>secrets.yaml</code> (<code>google_places_api_key</code>).</p>'}
+          <p class="nav-note">The share button copies an official <code>google.com/maps/search</code> link, or the place’s Google Maps URL when inline results are used.</p>
+          <p class="nav-note">The XPENG cloud accepts one destination, not a full route. The car plans the route from its current position. “Send Address to Vehicle” must be enabled on the touchscreen.</p>
+        </div>
+        ${this._places.length ? `<div class="panel" data-places-results><div class="row"><h3>Google Places results</h3><button class="small" type="button" data-places-clear>Clear</button></div>${this._places.map((place, index) => `<div class="route"><div><strong>${esc(place.name)}</strong><span class="route-coords">${esc(place.address)}</span></div><div class="inline-actions"><button class="small" type="button" data-place-use="${index}">Use</button><button class="small" type="button" data-place-share="${index}">Share</button></div></div>`).join("")}</div>` : ""}
+        <div class="panel"><div class="row"><h3>Saved routes</h3><span class="muted">${routes.length}</span></div>
+          ${routes.length ? routes.map(route => `<div class="route"><div><strong>${esc(route.name)}</strong><span class="route-coords">${route.latitude.toFixed(5)}, ${route.longitude.toFixed(5)}${route.pinned ? " · pinned" : ""}</span></div><div class="inline-actions">${this._btn("Send", "navigation-variant-outline", this._navAction(route), {small:true, disabled:!available, alwaysAvailable:true, ariaLabel:`Send ${route.name} to the car`})}<button class="small" type="button" data-route-share="${esc(route.id)}">Copy link</button>${route.pinned ? "" : `<button class="small" type="button" data-route-delete="${esc(route.id)}">Delete</button>`}</div></div>`).join("") : '<p class="nav-note">No saved routes yet. Enter a destination and press “Save route”.</p>'}
+          <p class="nav-note">Saved routes live in this browser. Pin routes on every device with the card’s <code>routes:</code> YAML option.</p>
+        </div>`;
+    }
     _render() {
       if (!this.config||!this._hass) return;
       this.toggleAttribute("dark",this.config.theme==="dark"||(this.config.theme!=="light"&&!!this._hass.themes?.darkMode)); this.toggleAttribute("compact",this.config.compact!==false);this._actions.clear();
       if (!this._prefix()&&!this.config.image_entity&&!Object.keys(this.config.entities).length) { this.shadowRoot.innerHTML=`<style>${css}</style><ha-card><div class="empty">Choose a vehicle image entity or entity_prefix in the card editor. Multiple cars need an explicit selection.</div></ha-card>`;return; }
       const feedback=this._entity("feedback"), rejected=known(feedback)&&feedback.attributes.code!==undefined&&Number(feedback.attributes.code)!==200;
-      const body=({controls:()=>this._controls(),climate:()=>this._climate(),charging:()=>this._charging(),status:()=>this._status()})[this._tab]();
-      this.shadowRoot.innerHTML=`<style>${css}</style><ha-card><div class="layout">${this._hero()}<main class="workspace"><nav class="tabs" role="tablist" aria-label="Vehicle sections">${["controls","climate","charging","status"].map(t=>`<button class="tab" type="button" role="tab" aria-selected="${t===this._tab}" data-tab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")}</nav>${this._message?`<div class="notice ${this._message.error?"error":""}" role="status">${esc(this._message.text)}</div>`:""}<section role="tabpanel" aria-label="${this._tab}">${body}</section>${known(feedback)?`<div class="feedback ${rejected?"error":""}">${icon(rejected?"alert-circle-outline":"message-check-outline")}<div>Last vehicle response: ${esc(feedback.state)}<time>${esc(this._age(feedback.last_updated))}</time></div></div>`:""}</main></div>${this._confirmation?`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Confirm vehicle action"><h3>${esc(this._confirmation.label)}?</h3><p>${esc(this._confirmation.message || "This sends a command to your car.")}</p><div class="inline-actions"><button class="small" type="button" data-cancel>Cancel</button><button class="small primary" type="button" data-confirm>Confirm</button></div></div></div>`:this._panel?this._panelContent():""}</ha-card>`;
+      const tabs = this.config.navigation ? ["controls","navigate","climate","charging","status"] : ["controls","climate","charging","status"];
+      if (!tabs.includes(this._tab)) this._tab = "controls";
+      const body=({controls:()=>this._controls(),navigate:()=>this._navigate(),climate:()=>this._climate(),charging:()=>this._charging(),status:()=>this._status()})[this._tab]();
+      this.shadowRoot.innerHTML=`<style>${css}</style><ha-card><div class="layout">${this._hero()}<main class="workspace"><nav class="tabs" role="tablist" aria-label="Vehicle sections">${tabs.map(t=>`<button class="tab" type="button" role="tab" aria-selected="${t===this._tab}" data-tab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")}</nav>${this._message?`<div class="notice ${this._message.error?"error":""}" role="status">${esc(this._message.text)}</div>`:""}<section role="tabpanel" aria-label="${this._tab}">${body}</section>${known(feedback)?`<div class="feedback ${rejected?"error":""}">${icon(rejected?"alert-circle-outline":"message-check-outline")}<div>Last vehicle response: ${esc(feedback.state)}<time>${esc(this._age(feedback.last_updated))}</time></div></div>`:""}</main></div>${this._confirmation?`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Confirm vehicle action"><h3>${esc(this._confirmation.label)}?</h3><p>${esc(this._confirmation.message || "This sends a command to your car.")}</p><div class="inline-actions"><button class="small" type="button" data-cancel>Cancel</button><button class="small primary" type="button" data-confirm>Confirm</button></div></div></div>`:this._panel?this._panelContent():""}</ha-card>`;
     }
     getCardSize() { return 9; }
     getGridOptions() { return {columns:12,rows:"auto",min_columns:6}; }
@@ -366,20 +720,22 @@
     }
   }
   class XPengVehicleCardEditor extends HTMLElement {
-    setConfig(config) { this.config={theme:"auto",confirm_actions:true,compact:true,...config};const form=this.querySelector("ha-form");if(form)form.data=this.config;else this._render(); }
+    setConfig(config) { this.config={theme:"auto",confirm_actions:true,compact:true,navigation:false,...config};const form=this.querySelector("ha-form");if(form)form.data=this.config;else this._render(); }
     set hass(hass) { this._hass=hass;const form=this.querySelector("ha-form");if(form)form.hass=hass;else this._render(); }
     _render() {
       if(!this.config||!this._hass||this.querySelector("ha-form"))return;
       const form=document.createElement("ha-form");form.hass=this._hass;form.data=this.config;
-      form.schema=[{name:"name",selector:{text:{}}},{name:"image_entity",selector:{entity:{domain:"image"}}},{name:"entity_prefix",selector:{text:{}}},{name:"theme",selector:{select:{options:["auto","light","dark"],mode:"dropdown"}}},{name:"compact",selector:{boolean:{}}},{name:"confirm_actions",selector:{boolean:{}}}];
-      form.computeLabel=({name})=>({name:"Vehicle name",image_entity:"Vehicle image",entity_prefix:"Entity prefix (optional, e.g. xpeng_p7)",theme:"Appearance",compact:"Compact dashboard card",confirm_actions:"Confirm unlock, horn, wake and opening actions"})[name];
+      form.schema=[{name:"name",selector:{text:{}}},{name:"image_entity",selector:{entity:{domain:"image"}}},{name:"entity_prefix",selector:{text:{}}},{name:"theme",selector:{select:{options:["auto","light","dark"],mode:"dropdown"}}},{name:"compact",selector:{boolean:{}}},{name:"confirm_actions",selector:{boolean:{}}},{name:"navigation",selector:{boolean:{}}},{name:"google_maps_embed_key",selector:{text:{}}}];
+      form.computeLabel=({name})=>({name:"Vehicle name",image_entity:"Vehicle image",entity_prefix:"Entity prefix (optional, e.g. xpeng_p7)",theme:"Appearance",compact:"Compact dashboard card",confirm_actions:"Confirm unlock, horn, wake and opening actions",navigation:"Enable navigation tab",google_maps_embed_key:"Google Maps Embed API browser key (optional)"})[name];
       form.addEventListener("value-changed",ev=>{this.config={...this.config,...ev.detail.value};this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:this.config},bubbles:true,composed:true}));});
-      const help=document.createElement("p");help.textContent="Uses this vehicle's existing XPENG entities. Use the YAML entities map to override renamed entities or set a role to false to hide it.";help.style.cssText="font-size:12px;line-height:1.6;color:var(--secondary-text-color)";this.append(form,help);
+      const help=document.createElement("p");help.textContent="Uses this vehicle's existing XPENG entities. Use the YAML entities map to override renamed entities or set a role to false to hide it. Navigation is off by default; saved routes live in this browser, and the routes: option pins them.";help.style.cssText="font-size:12px;line-height:1.6;color:var(--secondary-text-color)";
+      const note=document.createElement("p");note.textContent="Navigation/search note: inline Google Places results need a Google Places API key in secrets.yaml (google_places_api_key) and rest_command.google_places_search. Without them, Search opens Google Maps. A separate Maps Embed API browser key in google_maps_embed_key shows the map/route preview; restrict it to this HA URL.";note.style.cssText="font-size:12px;line-height:1.6;color:var(--secondary-text-color)";
+      this.append(form,help,note);
     }
   }
   if(!customElements.get("xpeng-vehicle-card"))customElements.define("xpeng-vehicle-card",XPengVehicleCard);
   if(!customElements.get("xpeng-vehicle-card-editor"))customElements.define("xpeng-vehicle-card-editor",XPengVehicleCardEditor);
   window.customCards=window.customCards||[];
-  if(!window.customCards.some(c=>c.type==="xpeng-vehicle-card"))window.customCards.push({type:"xpeng-vehicle-card",name:"XPENG Vehicle",description:"App-inspired vehicle image, access, climate, seats, charging and status.",preview:true});
+  if(!window.customCards.some(c=>c.type==="xpeng-vehicle-card"))window.customCards.push({type:"xpeng-vehicle-card",name:"XPENG Vehicle",description:"App-inspired vehicle image, access, climate, seats, charging, status and destination navigation.",preview:true});
   console.info(`XPENG VEHICLE CARD ${VERSION}`);
 })();
