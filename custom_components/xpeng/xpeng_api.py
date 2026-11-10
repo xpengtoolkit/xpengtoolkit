@@ -2493,8 +2493,20 @@ def execute_xcombo_scene(
     scene_id: str,
     vin: str,
 ) -> Any:
-    """Execute (one-key start) an X-Combo scene."""
-    body = compact_json({"sceneId": scene_id, "vin": vin})
+    """Execute (one-key start) an X-Combo scene.
+
+    Exact body the iOS app sends (captured 2026-11-10). The server needs the
+    operator/source fields and a timestamp, not just sceneId/vin. ``source: 1``
+    is the lifecycle execution source (the scene detail query uses 0).
+    """
+    body = compact_json({
+        "sceneId": scene_id,
+        "vin": vin,
+        "uid": str(tokens.get("uid") or ""),
+        "operatorType": 1,
+        "source": 1,
+        "timestamp": time.time() * 1000,
+    })
     return get_authenticated_data(
         config, tenant, tokens,
         "/personal-tailor/v3/scene/lifecycle", "POST", body,

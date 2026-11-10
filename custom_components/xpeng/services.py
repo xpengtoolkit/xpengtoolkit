@@ -620,9 +620,16 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         if not tokens or not tenant:
             _LOGGER.error("No API credentials available for scene execution")
             return
-        await hass.async_add_executor_job(
+        result = await hass.async_add_executor_job(
             execute_xcombo_scene, None, tenant, tokens, scene_id, coordinator.vin
         )
+        if isinstance(result, dict) and result.get("code") not in (None, 200):
+            raise HomeAssistantError(
+                "execute_scene failed: "
+                f"{result.get('desc') or result.get('msg') or result} "
+                f"(code {result.get('code')})"
+            )
+        _LOGGER.info("Executed X-Combo scene %s: result=%s", scene_id, result)
 
     async def handle_toggle_scene(call: ServiceCall) -> None:
         scene_id = call.data["scene_id"]

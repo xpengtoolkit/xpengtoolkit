@@ -74,7 +74,31 @@ def test_label_defaults_to_name() -> None:
     assert body["xpMsgPoi"]["label"] == "Home"
 
 
+def test_execute_xcombo_payload() -> None:
+    captured: dict[str, str] = {}
+
+    def fake_get_authenticated_data(config, tenant, tokens, path, method, body):
+        captured.update(path=path, method=method, body=body)
+        return {"code": 200}
+
+    api.get_authenticated_data = fake_get_authenticated_data  # type: ignore[assignment]
+    api.execute_xcombo_scene(
+        None, {}, {"uid": "10458997"}, "scene-123", "L1NNSGHA3SB800783"
+    )
+    assert captured["path"] == "/personal-tailor/v3/scene/lifecycle"
+    assert captured["method"] == "POST"
+    body = json.loads(captured["body"])
+    assert body["sceneId"] == "scene-123"
+    assert body["vin"] == "L1NNSGHA3SB800783"
+    assert body["uid"] == "10458997"
+    assert body["operatorType"] == 1
+    assert body["source"] == 1
+    assert isinstance(body["timestamp"], float) and body["timestamp"] > 0
+
+
 if __name__ == "__main__":
     test_payload_matches_app()
     test_label_defaults_to_name()
+    test_execute_xcombo_payload()
     print("PASS send navigation xpMsgPoi payload")
+    print("PASS remote X-Combo lifecycle payload")
