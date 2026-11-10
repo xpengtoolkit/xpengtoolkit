@@ -916,12 +916,21 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 None, tenant, tokens, coordinator.vin,
                 name, latitude, longitude, label, poi_id, msg_type,
             )
+            if isinstance(result, dict) and result.get("code") not in (None, 200):
+                raise HomeAssistantError(
+                    "send_navigation failed: "
+                    f"{result.get('desc') or result.get('msg') or result} "
+                    f"(code {result.get('code')})"
+                )
             _LOGGER.info(
                 "Sent navigation to vehicle: name=%s lat=%s lon=%s result=%s",
                 name, latitude, longitude, result,
             )
+        except HomeAssistantError:
+            raise
         except Exception as err:
             _LOGGER.warning("send_navigation failed: %s", err)
+            raise HomeAssistantError(f"send_navigation failed: {err}") from err
 
     async def handle_force_calendar_sync(call: ServiceCall) -> None:
         entry_data = _entry_for_call(hass, call)
