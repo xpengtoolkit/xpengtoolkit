@@ -47,7 +47,7 @@ Download the JavaScript from the path above and copy it to
 `/config/www/xpeng-vehicle-card/`. Register a **JavaScript module** resource:
 
 ```text
-/local/xpeng-vehicle-card/xpeng-vehicle-card.js?v=0.2.0
+/local/xpeng-vehicle-card/xpeng-vehicle-card.js?v=0.2.1
 ```
 
 Add the card using its visual editor or YAML:
@@ -61,9 +61,10 @@ theme: auto
 compact: true
 confirm_actions: true
 navigation: true
+confirm_navigation: true
 ```
 
-`theme` supports `auto`, `light`, and `dark`. Compact mode is the default: access and lights open small panels inside the card. Set `compact: false` for an expanded layout. Confirmations default to enabled. Add the card to any existing dashboard using the card picker entry **XPENG Vehicle**. No separate dashboard or sidebar page is required. The card also supports sections grid sizing.
+`theme` supports `auto`, `light`, and `dark`. Compact mode is the default: access and lights open small panels inside the card. Set `compact: false` for an expanded layout. Confirmations default to enabled, and sending a destination asks for confirmation too - set `confirm_navigation: false` to send destinations and saved routes without the prompt. Add the card to any existing dashboard using the card picker entry **XPENG Vehicle**. No separate dashboard or sidebar page is required. The card also supports sections grid sizing.
 
 ## Included controls
 
@@ -96,6 +97,13 @@ optional label, and a Google Maps link that fills the fields. It is a
 **destination push, not a route push**: the car plans the route itself from its
 current position. The head unit's **Send Address to Vehicle** setting must be
 on, and the car model must support address sharing.
+
+**Send to car** and the **Send** buttons on saved routes ask for confirmation
+first, naming the destination and its coordinates, so a stray tap cannot push a
+destination to the car. Turn that off with `confirm_navigation: false` (or the
+editor's **Confirm before sending a destination to the car** switch). This
+switch is separate from `confirm_actions`: disabling the other confirmations
+leaves navigation prompts in place.
 
 Saved routes are named destinations. Routes added in the card are stored in this
 browser's `localStorage`, keyed by the vehicle; they are not synced between

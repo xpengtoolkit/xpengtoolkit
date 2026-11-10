@@ -69,6 +69,7 @@ The visual editor appears with these fields:
 | **Compact dashboard card** | On by default: controls open in small panels inside the card. Turn it off for an expanded layout. |
 | **Confirm unlock, horn, wake and opening actions** | On by default. Trunk **opening** always confirms regardless, with a clearance reminder. |
 | **Enable navigation tab** | Off by default. Shows the Navigate tab. Inline Google Places search also needs a Google API key in `secrets.yaml` (`google_places_api_key`) and `rest_command.google_places_search`; without them Search opens Google Maps. |
+| **Confirm before sending a destination to the car** | On by default. **Send to car** and saved-route **Send** buttons name the destination and its coordinates before sending. Set `confirm_navigation: false` to send immediately; this switch is separate from **Confirm unlock, horn, wake and opening actions**. |
 | **Google Maps Embed API browser key** | Optional. Set `google_maps_embed_key` to a browser key restricted to your HA URL and the Maps Embed API to show the car position and a route preview. Use a separate browser key, not the server Places key. |
 
 In a **sections** dashboard the card asks for a 12-column slot (minimum 6);
@@ -84,6 +85,7 @@ theme: auto
 compact: true
 confirm_actions: true
 navigation: true
+confirm_navigation: true
 ```
 
 ## 3. Choose the car, especially with several cars
@@ -137,9 +139,11 @@ editor or set `navigation: true`. It sends a destination with
 `xpeng.send_navigation` - the same
 cloud call as the official app's **Send Address to Vehicle**. Fill a name,
 latitude and longitude, or paste a full Google Maps link containing coordinates
-and press **Fill from link**. **Send to car** then pushes the destination; the
-car plans the route itself. The head unit's **Send Address to Vehicle** setting
-must be on, and the model must support address sharing.
+and press **Fill from link**. **Send to car** then asks for confirmation -
+naming the destination and its coordinates - before pushing it; the car plans
+the route itself. Set `confirm_navigation: false` to skip that prompt. The head
+unit's **Send Address to Vehicle** setting must be on, and the model must
+support address sharing.
 
 **Save route** stores the destination in this browser (up to 20, keyed by the
 vehicle). **Use as destination** copies the car's reported position into the

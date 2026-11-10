@@ -257,12 +257,35 @@ async function test(name,fn) {await fn();passed++;console.log(`PASS ${name}`);}
     assert.ok(!html.includes("undefined"));assert.ok(!html.includes("NaN"));
     assert.equal(calls.length,0);
   });
-  await test("navigation sends one destination with the selected car, not an entity target",async()=>{
+  await test("navigation confirms the destination before sending, then sends it",async()=>{
     const {card,calls}=setup();card._tab="navigate";card._navDraft={name:"Work",latitude:"-33.8688",longitude:"151.2093"};card._render();
+    let pending;const send=card._send.bind(card);card._send=a=>pending=send(a);
+    const click=dataset=>card.shadowRoot.listeners.click({target:{closest:()=>({dataset})}});
     await card._sendDraft();
+    assert.equal(calls.length,0);assert.ok(card._confirmation);assert.match(card.shadowRoot.innerHTML,/Send Work to the car\?/);
+    assert.match(card.shadowRoot.innerHTML,/151\.2093/);
+    click({cancel:""});assert.equal(card._confirmation,null);assert.equal(calls.length,0);
+    await card._sendDraft();click({confirm:""});await pending;
     assert.equal(calls.length,1);assert.equal(calls[0][0],"xpeng");assert.equal(calls[0][1],"send_navigation");
     assert.equal(calls[0][2].name,"Work");assert.equal(calls[0][2].latitude,-33.8688);assert.equal(calls[0][2].longitude,151.2093);
     assert.equal(calls[0][2].vehicle_entity_id,"device_tracker.xpeng_test_location");assert.equal(calls[0][3],undefined);
+  });
+  await test("confirm_navigation:false sends destinations and saved routes without a prompt",async()=>{
+    const {card,calls}=setup();
+    card.setConfig({entity_prefix:"xpeng_test",navigation:true,confirm_navigation:false,routes:[{name:"Home",latitude:-33.9,longitude:151.1}]});
+    card._tab="navigate";card._navDraft={name:"Work",latitude:"-33.8688",longitude:"151.2093"};card._render();
+    await card._sendDraft();await new Promise(r=>setTimeout(r,0));
+    assert.ok(!card._confirmation);assert.equal(calls.length,1);assert.equal(calls[0][1],"send_navigation");
+    const action=[...card._actions.values()].find(a=>a.service==="xpeng.send_navigation");
+    card._run(action);await new Promise(r=>setTimeout(r,0));
+    assert.ok(!card._confirmation);assert.equal(calls.length,2);assert.equal(calls[1][2].name,"Home");
+    assert.throws(()=>card.setConfig({image_entity:"image.xpeng_test_vehicle_picture",navigation:true,confirm_navigation:"yes"}),/confirm_navigation/);
+  });
+  await test("saved route Send buttons prompt for confirmation by default",()=>{
+    const {card,calls}=setup();card.setConfig({entity_prefix:"xpeng_test",routes:[{name:"Home",latitude:-33.9,longitude:151.1}],navigation:true});card._tab="navigate";card._render();
+    const action=[...card._actions.values()].find(a=>a.service==="xpeng.send_navigation");assert.ok(action);
+    card._run(action);
+    assert.equal(calls.length,0);assert.ok(card._confirmation);assert.match(card.shadowRoot.innerHTML,/Send Home to the car\?/);
   });
   await test("navigation refuses missing or out-of-range destinations",async()=>{
     const {card,calls}=setup();card._tab="navigate";
@@ -299,7 +322,9 @@ async function test(name,fn) {await fn();passed++;console.log(`PASS ${name}`);}
   await test("a missing send_navigation service is reported, not sent",async()=>{
     const {card,hass,calls}=setup();delete hass.services.xpeng;card._tab="navigate";card._navDraft={name:"Work",latitude:1,longitude:2};card._render();
     assert.ok(card.shadowRoot.innerHTML.includes("does not expose"));
-    await card._sendDraft();assert.equal(calls.length,0);assert.equal(card._message.error,true);
+    let pending;const send=card._send.bind(card);card._send=a=>pending=send(a);
+    card._sendDraft();card.shadowRoot.listeners.click({target:{closest:()=>({dataset:{confirm:""}})}});await pending;
+    assert.equal(calls.length,0);assert.equal(card._message.error,true);
   });
   await test("a saved route sends through the selected vehicle",async()=>{
     const {card,calls}=setup();card.setConfig({entity_prefix:"xpeng_test",routes:[{name:"Home",latitude:-33.9,longitude:151.1}],navigation:true});card._tab="navigate";card._render();
@@ -364,7 +389,9 @@ async function test(name,fn) {await fn();passed++;console.log(`PASS ${name}`);}
     const click=dataset=>card.shadowRoot.listeners.click({target:{closest:()=>({dataset})}});
     click({navSave:""});assert.equal(card._allRoutes().length,1);
     click({navLocation:""});assert.equal(card._navDraft.latitude,"-33.8688");
-    click({navSend:""});assert.equal(calls.length,1);assert.equal(calls[0][1],"send_navigation");
+    click({navSend:""});assert.equal(calls.length,0);assert.ok(card._confirmation);assert.match(card.shadowRoot.innerHTML,/Send Work to the car\?/);
+    click({confirm:""});await new Promise(r=>setTimeout(r,0));
+    assert.equal(calls.length,1);assert.equal(calls[0][1],"send_navigation");
     const route=card._allRoutes()[0];click({routeDelete:route.id});assert.equal(card._allRoutes().length,0);
   });
   await test("search, copy and route-share buttons route through the click handlers",async()=>{

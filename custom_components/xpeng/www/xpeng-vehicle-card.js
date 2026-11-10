@@ -1,6 +1,6 @@
-/* XPENG Vehicle Card v0.2.0 · No dependencies. Uses existing Home Assistant entities. */
+/* XPENG Vehicle Card v0.2.1 · No dependencies. Uses existing Home Assistant entities. */
 (() => {
-  const VERSION = "0.2.0";
+  const VERSION = "0.2.1";
   const ROLES = {
     image: ["image", "vehicle_picture"], battery: ["sensor", "battery"], range: ["sensor", "range"],
     range_type: ["sensor", "range_type"], lock: ["lock", "door_lock"], trunk: ["cover", "trunk"],
@@ -121,6 +121,7 @@
       }
       if (config.image_entity && !/^image\.[a-z0-9_]+$/.test(config.image_entity)) throw new Error("Choose an image entity");
       if (config.navigation !== undefined && typeof config.navigation !== "boolean") throw new Error("navigation must be true or false");
+      if (config.confirm_navigation !== undefined && typeof config.confirm_navigation !== "boolean") throw new Error("confirm_navigation must be true or false");
       if (config.google_maps_embed_key !== undefined && typeof config.google_maps_embed_key !== "string") throw new Error("google_maps_embed_key must be a string");
       if (config.routes !== undefined && !Array.isArray(config.routes)) throw new Error("routes must be a list of destinations");
       const routes = config.routes === undefined ? undefined : config.routes.map((route, i) => {
@@ -295,7 +296,7 @@
       if (route.poi_id) data.poi_id = route.poi_id;
       return this._action("image", "xpeng.send_navigation", data, `Send ${route.name} to the car`);
     }
-    _sendDraft() { const route = this._readNavDraft(); if (route) return this._send(this._navAction(route)); }
+    _sendDraft() { const route = this._readNavDraft(); if (route) this._run(this._navAction(route)); }
     _addRoute() {
       const route = this._readNavDraft(); if (!route) return;
       const routes = this._loadLocalRoutes();
@@ -473,8 +474,9 @@
     _run(a) {
       if (this._busy) return;
       const trunkOpen = a.key === "trunk" && a.service === "cover.open_cover";
-      const confirm = a.key === "trunk" ? trunkOpen : a.confirm && this.config.confirm_actions !== false;
-      if (confirm) { this._confirmation = {...a, entityId:this._id(a.key),message:trunkOpen?"Check there is enough space above and behind the car before opening the trunk.":"This sends a command to your car."}; this._render(); queueMicrotask(() => this.shadowRoot.querySelector("[data-cancel]")?.focus()); }
+      const navigate = a.service === "xpeng.send_navigation";
+      const confirm = a.key === "trunk" ? trunkOpen : navigate ? this.config.confirm_navigation !== false : a.confirm && this.config.confirm_actions !== false;
+      if (confirm) { this._confirmation = {...a, entityId:this._id(a.key),message:trunkOpen?"Check there is enough space above and behind the car before opening the trunk.":navigate?`This sends “${a.data.name}” (${a.data.latitude}, ${a.data.longitude}) to the car. The head unit shows the destination when it is received.`:"This sends a command to your car."}; this._render(); queueMicrotask(() => this.shadowRoot.querySelector("[data-cancel]")?.focus()); }
       else this._send(a);
     }
     _validate(a) {
@@ -720,15 +722,15 @@
     }
   }
   class XPengVehicleCardEditor extends HTMLElement {
-    setConfig(config) { this.config={theme:"auto",confirm_actions:true,compact:true,navigation:false,...config};const form=this.querySelector("ha-form");if(form)form.data=this.config;else this._render(); }
+    setConfig(config) { this.config={theme:"auto",confirm_actions:true,compact:true,navigation:false,confirm_navigation:true,...config};const form=this.querySelector("ha-form");if(form)form.data=this.config;else this._render(); }
     set hass(hass) { this._hass=hass;const form=this.querySelector("ha-form");if(form)form.hass=hass;else this._render(); }
     _render() {
       if(!this.config||!this._hass||this.querySelector("ha-form"))return;
       const form=document.createElement("ha-form");form.hass=this._hass;form.data=this.config;
-      form.schema=[{name:"name",selector:{text:{}}},{name:"image_entity",selector:{entity:{domain:"image"}}},{name:"entity_prefix",selector:{text:{}}},{name:"theme",selector:{select:{options:["auto","light","dark"],mode:"dropdown"}}},{name:"compact",selector:{boolean:{}}},{name:"confirm_actions",selector:{boolean:{}}},{name:"navigation",selector:{boolean:{}}},{name:"google_maps_embed_key",selector:{text:{}}}];
-      form.computeLabel=({name})=>({name:"Vehicle name",image_entity:"Vehicle image",entity_prefix:"Entity prefix (optional, e.g. xpeng_p7)",theme:"Appearance",compact:"Compact dashboard card",confirm_actions:"Confirm unlock, horn, wake and opening actions",navigation:"Enable navigation tab",google_maps_embed_key:"Google Maps Embed API browser key (optional)"})[name];
+      form.schema=[{name:"name",selector:{text:{}}},{name:"image_entity",selector:{entity:{domain:"image"}}},{name:"entity_prefix",selector:{text:{}}},{name:"theme",selector:{select:{options:["auto","light","dark"],mode:"dropdown"}}},{name:"compact",selector:{boolean:{}}},{name:"confirm_actions",selector:{boolean:{}}},{name:"navigation",selector:{boolean:{}}},{name:"confirm_navigation",selector:{boolean:{}}},{name:"google_maps_embed_key",selector:{text:{}}}];
+      form.computeLabel=({name})=>({name:"Vehicle name",image_entity:"Vehicle image",entity_prefix:"Entity prefix (optional, e.g. xpeng_p7)",theme:"Appearance",compact:"Compact dashboard card",confirm_actions:"Confirm unlock, horn, wake and opening actions",navigation:"Enable navigation tab",confirm_navigation:"Confirm before sending a destination to the car",google_maps_embed_key:"Google Maps Embed API browser key (optional)"})[name];
       form.addEventListener("value-changed",ev=>{this.config={...this.config,...ev.detail.value};this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:this.config},bubbles:true,composed:true}));});
-      const help=document.createElement("p");help.textContent="Uses this vehicle's existing XPENG entities. Use the YAML entities map to override renamed entities or set a role to false to hide it. Navigation is off by default; saved routes live in this browser, and the routes: option pins them.";help.style.cssText="font-size:12px;line-height:1.6;color:var(--secondary-text-color)";
+      const help=document.createElement("p");help.textContent="Uses this vehicle's existing XPENG entities. Use the YAML entities map to override renamed entities or set a role to false to hide it. Navigation is off by default and sending a destination confirms first unless confirm_navigation is false; saved routes live in this browser, and the routes: option pins them.";help.style.cssText="font-size:12px;line-height:1.6;color:var(--secondary-text-color)";
       const note=document.createElement("p");note.textContent="Navigation/search note: inline Google Places results need a Google Places API key in secrets.yaml (google_places_api_key) and rest_command.google_places_search. Without them, Search opens Google Maps. A separate Maps Embed API browser key in google_maps_embed_key shows the map/route preview; restrict it to this HA URL.";note.style.cssText="font-size:12px;line-height:1.6;color:var(--secondary-text-color)";
       this.append(form,help,note);
     }
