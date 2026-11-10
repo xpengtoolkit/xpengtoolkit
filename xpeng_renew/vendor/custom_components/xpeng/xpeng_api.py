@@ -2493,8 +2493,20 @@ def execute_xcombo_scene(
     scene_id: str,
     vin: str,
 ) -> Any:
-    """Execute (one-key start) an X-Combo scene."""
-    body = compact_json({"sceneId": scene_id, "vin": vin})
+    """Execute (one-key start) an X-Combo scene.
+
+    Exact body the iOS app sends (captured 2026-11-10). The server needs the
+    operator/source fields and a timestamp, not just sceneId/vin. ``source: 1``
+    is the lifecycle execution source (the scene detail query uses 0).
+    """
+    body = compact_json({
+        "sceneId": scene_id,
+        "vin": vin,
+        "uid": str(tokens.get("uid") or ""),
+        "operatorType": 1,
+        "source": 1,
+        "timestamp": time.time() * 1000,
+    })
     return get_authenticated_data(
         config, tenant, tokens,
         "/personal-tailor/v3/scene/lifecycle", "POST", body,
@@ -2738,18 +2750,31 @@ def send_to_vehicle(
     cloud service formats the destination into a head-unit navigation card
     and forwards it to the car over MQTT.
     """
+    # Exact shape the official iOS app posts (captured 2026-11-10). The cloud
+    # validates msgType against this template name ("xpMsgPoi"), and reads the
+    # destination from the nested xpMsgPoi object:
+    #   {"vin": ..., "msgType": "xpMsgPoi", "uid": "<uid>",
+    #    "xpMsgPoi": {"label": ..., "coordinateType": 2,
+    #                 "latitude": ..., "longitude": ..., "name": ...}}
+    # A flat payload or a numeric msgType is rejected with 11001101/11001601.
+    uid = str(tokens.get("uid") or "")
+    if msg_type and msg_type != "xpMsgPoi":
+        _LOGGER.warning(
+            "Ignoring msg_type=%s for sendToVehicle; the cloud only accepts "
+            "'xpMsgPoi'", msg_type,
+        )
     payload: dict[str, Any] = {
         "vin": vin,
-        "name": name,
-        "lat": latitude,
-        "lon": longitude,
+        "msgType": "xpMsgPoi",
+        "uid": uid,
+        "xpMsgPoi": {
+            "label": label or name,
+            "coordinateType": 2,
+            "latitude": latitude,
+            "longitude": longitude,
+            "name": name,
+        },
     }
-    if label:
-        payload["label"] = label
-    if poi_id:
-        payload["poiId"] = poi_id
-    if msg_type:
-        payload["msgType"] = msg_type
     body = compact_json(payload)
     return get_authenticated_data(
         config, tenant, tokens,
