@@ -33,8 +33,8 @@ def test_payload_matches_app() -> None:
     result = api.send_to_vehicle(
         None,
         {},
-        {"uid": "10458997"},
-        "L1NNSGHA3SB800783",
+        {"uid": "123456"},
+        "L1NNSGHAXSB123456",
         "Taree",
         -31.9111159,
         152.453931,
@@ -46,9 +46,9 @@ def test_payload_matches_app() -> None:
 
     body = json.loads(captured["body"])
     assert body == {
-        "vin": "L1NNSGHA3SB800783",
+        "vin": "L1NNSGHAXSB123456",
         "msgType": "xpMsgPoi",
-        "uid": "10458997",
+        "uid": "123456",
         "xpMsgPoi": {
             "label": "Taree NSW 2430, Australia",
             "coordinateType": 2,
@@ -83,14 +83,14 @@ def test_execute_xcombo_payload() -> None:
 
     api.get_authenticated_data = fake_get_authenticated_data  # type: ignore[assignment]
     api.execute_xcombo_scene(
-        None, {}, {"uid": "10458997"}, "scene-123", "L1NNSGHA3SB800783"
+        None, {}, {"uid": "123456"}, "scene-123", "L1NNSGHAXSB123456"
     )
     assert captured["path"] == "/personal-tailor/v3/scene/lifecycle"
     assert captured["method"] == "POST"
     body = json.loads(captured["body"])
     assert body["sceneId"] == "scene-123"
-    assert body["vin"] == "L1NNSGHA3SB800783"
-    assert body["uid"] == "10458997"
+    assert body["vin"] == "L1NNSGHAXSB123456"
+    assert body["uid"] == "123456"
     assert body["operatorType"] == 1
     assert body["source"] == 1
     assert isinstance(body["timestamp"], float) and body["timestamp"] > 0

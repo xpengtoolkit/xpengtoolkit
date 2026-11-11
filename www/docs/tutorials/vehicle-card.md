@@ -151,7 +151,7 @@ form. To pin routes on every device, use the card's `routes:` option:
 
 ```yaml
 type: custom:xpeng-vehicle-card
-entity_prefix: xpeng_800783
+entity_prefix: xpeng_123456
 routes:
   - name: Work
     latitude: -33.8688

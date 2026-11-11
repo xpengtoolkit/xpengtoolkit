@@ -112,7 +112,7 @@ device, list them in the card's YAML:
 
 ```yaml
 type: custom:xpeng-vehicle-card
-entity_prefix: xpeng_800783
+entity_prefix: xpeng_123456
 routes:
   - name: Work
     latitude: -33.8688
@@ -244,7 +244,7 @@ a search/send action also redraws.
 
 ```yaml
 type: custom:xpeng-vehicle-card
-entity_prefix: xpeng_800783
+entity_prefix: xpeng_123456
 navigation: true
 google_maps_embed_key: "YOUR_BROWSER_KEY"
 ```
