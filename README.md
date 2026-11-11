@@ -324,6 +324,39 @@ covers enabling the card, adding it to a dashboard, choosing the car, several
 vehicles and renamed entities, and troubleshooting.
 Read the [0.6.26 upgrade and downgrade notes](docs/RELEASE_NOTES_0.6.26.md) before upgrading.
 
+### Announcements on the car screen
+
+`xpeng.send_navigation` sends a destination card to the head unit - the same
+cloud call as the app's **Send Address to Vehicle** and the card's **Navigate**
+tab. The car does not start navigating: it shows the card, and dismissing it
+with **X** is the whole interaction. That makes the service a one-way
+announcement channel from any automation - the garage door opening or closing,
+a charge session that finished, somebody at the front door. The destination
+name is the message, templated here from the automation's trigger id:
+
+```yaml
+- action: xpeng.send_navigation
+  continue_on_error: true
+  data:
+    vehicle_entity_id: device_tracker.xpeng_<vehicle>_location
+    name: "Garage Door {{ 'Open' if trigger.id == 'opened' else 'Close' }}"
+    label: Home
+    latitude: "{{ state_attr('zone.home', 'latitude') }}"
+    longitude: "{{ state_attr('zone.home', 'longitude') }}"
+```
+
+Point the coordinates somewhere harmless (home, as here), so a stray
+**Navigate** tap cannot route the car anywhere unexpected. `continue_on_error:
+true` keeps the rest of the automation running when the cloud call fails, which
+an expired session is enough to do.
+
+The service is in the **Queries and data** group, so every permission preset -
+including **Read only** - can send an announcement. The head unit's **Send
+Address to Vehicle** setting must be on, and the model must support address
+sharing. See [services](https://xpengtoolkit.github.io/xpengtoolkit/reference/services)
+for every field and [automation examples](https://xpengtoolkit.github.io/xpengtoolkit/examples/automations)
+for the complete garage-door automation.
+
 ### Climate protocol and feedback
 
 Independent app modes use one measured switch each, including maximum heating/

@@ -422,6 +422,45 @@ data:
   label: Home
 ```
 
+#### Using it as an announcement
+
+The card is a destination, not a route: the head unit shows it, and nothing is
+routed until somebody taps **Navigate**, so dismissing it with **X** turns the
+service into a one-way announcement channel. Put the message in `name`, keep
+`label` short, and point the coordinates somewhere harmless — home is a good
+choice — so an accidental tap cannot send the car elsewhere.
+
+```yaml
+- alias: Garage door announcement on the car screen
+  id: garage_door_announcement
+  triggers:
+    - trigger: state
+      entity_id: cover.garage_door
+      to: open
+      id: opened
+    - trigger: state
+      entity_id: cover.garage_door
+      to: closed
+      id: closed
+  actions:
+    - action: xpeng.send_navigation
+      continue_on_error: true
+      data:
+        vehicle_entity_id: device_tracker.xpeng_<vehicle>_location
+        name: "Garage Door {{ 'Open' if trigger.id == 'opened' else 'Close' }}"
+        label: Home
+        latitude: "{{ state_attr('zone.home', 'latitude') }}"
+        longitude: "{{ state_attr('zone.home', 'longitude') }}"
+```
+
+`continue_on_error: true` is deliberate: the call is a cloud round-trip, and an
+expired session or an unreachable car must not stop the actions that follow it.
+
+Because `send_navigation` belongs to the **Queries and data** group, every
+permission preset leaves it callable — including **Read only**. If no card
+appears, check that **Send Address to Vehicle** is on in the car's settings and
+that the model supports address sharing.
+
 ### force_calendar_sync
 
 Triggers the vehicle's phone-calendar schedule sync — the same action as the

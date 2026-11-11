@@ -160,6 +160,50 @@ your automations. A rare `msg_type=3` push has no `category` (it is not a Messag
 Centre item), so drop the category condition if you want those too. See
 [Notifications](../guide/notifications).
 
+## Announce on the car screen
+
+There is no text channel to the car, but `xpeng.send_navigation` is close
+enough: it pushes a destination card to the head unit, nothing is routed until
+somebody taps **Navigate**, and dismissing it with **X** is one tap. Use the
+destination name as the message.
+
+```yaml
+- alias: Garage door announcement on the car screen
+  id: garage_door_announcement
+  triggers:
+    - trigger: state
+      entity_id: cover.garage_door
+      to: open
+      id: opened
+    - trigger: state
+      entity_id: cover.garage_door
+      to: closed
+      id: closed
+  actions:
+    - action: notify.mobile_app_your_phone
+      data:
+        message: "Garage door {{ 'open' if trigger.id == 'opened' else 'closed' }}"
+    - action: xpeng.send_navigation
+      continue_on_error: true
+      data:
+        vehicle_entity_id: device_tracker.xpeng_<vehicle>_location
+        name: "Garage Door {{ 'Open' if trigger.id == 'opened' else 'Close' }}"
+        label: Home
+        latitude: "{{ state_attr('zone.home', 'latitude') }}"
+        longitude: "{{ state_attr('zone.home', 'longitude') }}"
+```
+
+The coordinates are `zone.home` rather than the door on purpose: the name is
+the announcement, and home is a harmless place for the car to route to if the
+card is tapped by accident. `continue_on_error: true` keeps the rest of the
+action list running when the cloud call fails — an expired session is the
+common cause.
+
+The service is in the **Queries and data** group, which every preset leaves on,
+so this works even on **Read only**. The head unit's **Send Address to
+Vehicle** setting must be enabled, and the model must support address sharing.
+See [Services](../reference/services#send-navigation) for every field.
+
 ## Tell me when the session dies
 
 `credentials_valid` is the integration's own verdict, and it carries the reason.
