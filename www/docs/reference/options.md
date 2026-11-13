@@ -37,6 +37,7 @@ directory (see [Certificate directory](#certificate-directory)).
 | `tyre_pressure_unit` | Tyre pressure unit | Home Assistant unit system | Home Assistant unit system / kPa / psi / bar |
 | `iccid` | TBox SIM ICCID | empty | free text, diagnostic only |
 | `usable_battery_kwh` | Usable battery capacity (kWh) | `87.5` | `10`–`150` |
+| `abrp_token` | ABRP user token | empty (off) | the token ABRP shows for this car, or empty |
 
 Ranges are the `vol.Range(...)` bounds enforced in `config_flow.py`, and the help
 text quotes the same numbers. Where the code and the translations disagree, that
@@ -419,9 +420,78 @@ G9's NMC pack ran from launch - so it is labelled MY23-24 rather than pinned to 
 since which year a car is called depends on the market it was sold in. **The figure your
 car is quoted with is the reliable discriminator**: a G9 sold as `98 kWh` wants 93.1, one
 sold as `93.1 kWh` wants 92.2. A value that is too high overstates parked drain and one
-that is too low understates it; nothing else in the integration depends on the figure, and the
+that is too low understates it; nothing else in the integration depends on the figure,
+except that the optional ABRP push sends it as the pack capacity (see
+[A Better Route Planner](#a-better-route-planner-abrp)). The
 estimate is also bounded per hour and per step in the coordinator so that a
 mis-set value cannot produce an absurd reading.
+
+## A Better Route Planner (ABRP)
+
+[ABRP](https://abetterrouteplanner.com) plans EV routes from its own consumption
+model and refines that model while a route is planned, if the car reports live
+telemetry. With a token configured the integration posts each accepted vehicle
+state to ABRP's Telemetry API; with the field blank nothing leaves Home Assistant
+for ABRP at all. It is off by default because the token identifies one ABRP user
+**and one vehicle** - it is not something the integration can mint.
+
+### `abrp_token`
+
+Optional. Paste the token ABRP shows for this car:
+
+1. Open ABRP (the app, or the [web app](https://abetterrouteplanner.com)) →
+   **Settings** → your car → **Edit connection**.
+2. Under **Generic**, choose **Link**.
+3. Copy the token and paste it into the field, then save. Saving reloads the
+   config entry, so the push starts immediately - no restart.
+
+Blank means "send nothing", and clearing the field is how you turn it off. The
+field is trimmed before saving: a token pasted with a trailing newline would
+otherwise be sent as part of the query string and read by ABRP as a different
+token. A value that does not look like a token is refused on the form rather than
+saved and silently rejected on every push.
+
+**What is sent.** One JSON object per push, with ABRP's field names and units:
+
+| Field | Source | Notes |
+| --- | --- | --- |
+| `utc` | when the car's frame arrived | epoch seconds, **not** the HTTP call's time: a parked car's last frame can be an hour old |
+| `soc` | `instant.charge.battery_soc` | 0–100 only; a negative placeholder is dropped |
+| `speed`, `lat`, `lon`, `heading` | `interval.drive.*` | km/h and degrees; `0,0` is read as "no GPS fix" and dropped |
+| `est_battery_range`, `odometer` | `instant.odometer.*` | km |
+| `is_charging`, `is_parked` | charge state, and the integration's own parking verdict | 1/0 |
+| `power`, `current`, `voltage`, `is_dcfc` | `interval.charge.*` | while charging only; power and current negative, ABRP's sign for energy going *in* |
+| `cabin_temp`, `hvac_setpoint` | `instant.hvac.*` | °C |
+| `tire_pressure_fl/fr/rl/rr` | `instant.tpms.*` | kPa |
+| `capacity` | `usable_battery_kwh` | the option above |
+| `soe` | `soc` × `capacity` | kWh of energy currently in the pack, derived from the two rows above |
+
+**What is not sent, and why.** XPENG does not expose motor power, elevation,
+state of health or battery temperature to this integration, so those fields are
+absent rather than invented. A driving car deliberately sends **no** `power`: a
+0 kW reading would teach ABRP's consumption calibration that the car uses no
+energy. ABRP answers with a `missing` hint in that case, which is logged at debug
+level.
+
+**How often.** Each full frame the car reports is forwarded, throttled to at most
+one push every 10 s while the car is awake - ABRP's own guidance for the
+consumption calibration it asks for - and at most one a minute while parked.
+Sending starts with the first frame the car reports after a restart: the
+integration does not forward its cached copy, because that copy has no honest
+timestamp. The car pushes a
+frame roughly every 5 s while driving, so the 10 s floor halves the requests
+without losing a data point ABRP needs. A parked car only reports about once an
+hour (the passive query), so that is the real rate then: the integration does not
+invent "still here" pushes of data it already sent. ABRP being unreachable, or
+having no route planned, changes nothing else: the failure is logged once per run
+of failures and never affects the car or the entities.
+
+**Credentials.** The user token is stored in the config entry's options, so it is
+part of Home Assistant's config storage and of any backup - the same as the
+TeslaMate provider token - and is never written into the integration's own files.
+The `api_key` ABRP also requires identifies the *application*, not you: it is the
+shared community telemetry key built into `abrp.py`, and a key registered for
+Xpengtk replaces it in one place.
 
 ## Command permissions
 

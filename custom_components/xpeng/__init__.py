@@ -28,6 +28,7 @@ from .watchdog_policy import (
 )
 
 from .const import (
+    CONF_ABRP_TOKEN,
     CONF_CAPTURE_ENABLED,
     CONF_CAPTURE_PATH,
     CONF_CAPTURE_TOPICS,
@@ -2034,6 +2035,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Its writer thread outlives the client otherwise, and two writers in
             # one directory interleave parts under the same timestamped name.
             await hass.async_add_executor_job(previous_capture.stop, 5.0, "replaced")
+        # The ABRP reporter holds only a listener; stopping it keeps a replaced
+        # entry from pushing with the token the options no longer carry.
+        previous_reporter = previous.get("abrp_reporter")
+        if previous_reporter is not None:
+            previous_reporter.stop()
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
@@ -2075,6 +2081,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     ),
                 ),
             )
+        )
+
+    # 7c. The optional ABRP reporter: forwards every accepted vehicle state to
+    # A Better Route Planner (abrp.py). Off unless a token is configured - the
+    # token names one ABRP user and one vehicle, so there is nothing to mint.
+    # It listens to the coordinator rather than to the MQTT client, which also
+    # covers the REST-fallback merge when the push stream is wedged. A failure
+    # (ABRP down, no route planned) is logged by the reporter and never raised:
+    # it must not affect the car or the entry's setup.
+    hass.data[DOMAIN][entry.entry_id]["abrp_reporter"] = None
+    abrp_token = str(entry.options.get(CONF_ABRP_TOKEN, "") or "").strip()
+    if abrp_token:
+        from .abrp import start_abrp_reporter
+
+        hass.data[DOMAIN][entry.entry_id]["abrp_reporter"] = start_abrp_reporter(
+            hass, coordinator, abrp_token
         )
 
     # Compact mode is integration-level: seed renamed controller IDs and retire
@@ -2812,6 +2834,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.warning(
                         "Stopping the TeslaMate provider failed", exc_info=True
                     )
+            reporter = data.get("abrp_reporter")
+            if reporter is not None:
+                # Only unsubscribes; an in-flight POST finishes on its own and
+                # uses Home Assistant's shared session, which we do not own.
+                reporter.stop()
             for key in (
                 "cancel_timer",
                 "cancel_api_refresh",

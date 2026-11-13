@@ -1236,6 +1236,12 @@ on rather than discovered later. The event fields and a ready-made automation ar
   chosen port (default `8200`) with a generated bearer token, so TeslaMate can log
   this car. Read-only. Setup and the exact TeslaMate environment variables are in
   [docs/TESLAMATE.md](docs/TESLAMATE.md)
+- **ABRP user token** - optional and off by default. Paste the token from
+  [A Better Route Planner](https://abetterrouteplanner.com) (your car →
+  **Edit connection** → **Link** under **Generic**) to send live telemetry - SoC,
+  range, position, speed, charging power - while ABRP plans a route. Leave it blank
+  to send nothing. What is sent, at what cadence, and what XPENG cannot report:
+  [the options page](https://xpengtoolkit.github.io/xpengtoolkit/reference/options#abrp_token)
 
 ## Disclaimer
 

@@ -57,6 +57,9 @@ MODULES = (
     "can_journal.py",
     "poll_status.py",
     "watchdog_policy.py",
+    # ABRP telemetry is also loaded by path in tests; a missing import there
+    # would only surface as a failed push in a live Home Assistant.
+    "abrp.py",
     "health.py",
     "xpeng_errors.py",
     "vin_descriptor.py",

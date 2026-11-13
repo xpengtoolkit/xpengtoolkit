@@ -165,6 +165,7 @@
           "cert_dir": "Répertoire des certificats",
           "iccid": "ICCID de la SIM TBox",
           "usable_battery_kwh": "Capacité utile de la batterie (kWh)",
+          "abrp_token": "Jeton utilisateur ABRP (facultatif)",
           "notification_poll_interval": "Intervalle d'interrogation du centre de messages (secondes)",
           "teslamate_provider_enabled": "Activer le fournisseur d'API TeslaMate",
           "teslamate_provider_port": "Port du fournisseur TeslaMate",
@@ -192,6 +193,7 @@
           "cert_dir": "Chemin absolu du répertoire contenant ca-chain.crt, client-cert-0.pem et client-key.pem. Par défaut\u00a0: /config/custom_components/xpeng/certs.",
           "iccid": "ICCID de la SIM TBox. Facultatif\u00a0: laissez vide et ce capteur n'est pas créé\u00a0; renseignez-le et l'intégration ajoute un capteur de diagnostic affichant la valeur. Aucune API de niveau application ne l'expose, lisez-la donc sur l'écran de la voiture en saisissant *#9925*131# dans le composeur de l'unité centrale.",
           "usable_battery_kwh": "Réglez cette valeur sur la capacité de la batterie de votre voiture, d'après le chiffre qui la caractérise. Un VIN ne donne que la famille du modèle, donc rien ne peut la choisir à votre place. kWh utiles\u00a0: batterie G6 66,0 = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (NMC MY24) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 et après) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Seule l'estimation de la consommation en stationnement l'utilise.",
+          "abrp_token": "Envoie l'état en direct de votre voiture à A Better Route Planner lorsqu'un itinéraire y est planifié. Dans l'application ABRP, ouvrez votre voiture, choisissez Modifier la connexion, puis Lier dans la section Générique, et collez le jeton affiché. Laissez vide pour n'envoyer aucune donnée.",
           "notification_poll_interval": "Fréquence d'interrogation du centre de messages XPENG pour les notifications. Six requêtes par interrogation, une par catégorie\u00a0; une notification ne peut pas arriver plus tôt. Le capteur enregistre le délai réel sous `delay_s`.",
           "teslamate_provider_enabled": "Exécuter une API compatible Tesla sur le port ci-dessous afin que TeslaMate puisse enregistrer cette voiture comme si c'était une Tesla. En lecture seule\u00a0: aucune route de commande n'est servie, cette option ne peut donc ni déplacer ni déverrouiller la voiture. Désactivée par défaut.",
           "teslamate_provider_port": "Port sur lequel le fournisseur écoute, joignable depuis le conteneur ou l'hôte TeslaMate. Ne doit pas être 8123 (Home Assistant lui-même). 8200 est la valeur par défaut pour éviter tout conflit avec l'interface web de TeslaMate sur 4000.",
@@ -233,7 +235,8 @@
       "cert_files_missing": "Un ou plusieurs fichiers de certificat manquent dans ce répertoire. Il doit contenir ca-chain.crt, client-cert-0.pem et client-key.pem.",
       "token_required": "Un jeton d'au moins 8 caractères est requis\u00a0: le fournisseur est joignable sur le réseau et TeslaMate s'authentifie avec cette valeur.",
       "invalid_port": "Saisissez un port entre 1 et 65535.",
-      "port_conflict": "Le port 8123 est le serveur HTTP de Home Assistant lui-même. Choisissez un autre port, par exemple 8200."
+      "port_conflict": "Le port 8123 est le serveur HTTP de Home Assistant lui-même. Choisissez un autre port, par exemple 8200.",
+      "invalid_abrp_token": "Cela ne ressemble pas à un jeton ABRP. Collez le jeton affiché par ABRP pour la connexion générique (lettres, chiffres et tirets), ou laissez le champ vide."
     }
   },
   "entity": {

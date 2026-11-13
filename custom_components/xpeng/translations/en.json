@@ -165,6 +165,7 @@
           "cert_dir": "Certificate directory",
           "iccid": "TBox SIM ICCID",
           "usable_battery_kwh": "Usable battery capacity (kWh)",
+          "abrp_token": "ABRP user token (optional)",
           "notification_poll_interval": "Message Centre poll interval (seconds)",
           "teslamate_provider_enabled": "Enable the TeslaMate API provider",
           "teslamate_provider_port": "TeslaMate provider port",
@@ -192,6 +193,7 @@
           "cert_dir": "Absolute path to the directory holding ca-chain.crt, client-cert-0.pem and client-key.pem. Default: /config/custom_components/xpeng/certs.",
           "iccid": "TBox SIM ICCID. Optional: leave it blank and this sensor is not created; set it and the integration adds one diagnostic sensor showing the value. No app-tier API exposes it, so read it on the car's screen by entering *#9925*131# in the head-unit dialler.",
           "usable_battery_kwh": "Set this to your car's pack, from the figure it is known by. A VIN gives the model family only, so nothing can pick this for you. Usable kWh: G6 66.0 pack = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 (LFP, MY25 on) = 92.2 | G9 98.0 (NMC, MY23-24) = 93.1. Only the parked-consumption estimate uses it.",
+          "abrp_token": "Sends your car's live state to A Better Route Planner while a route is planned there. In the ABRP app open your car, choose Edit connection, then Link under Generic, and paste the token it shows. Leave blank to send nothing.",
           "notification_poll_interval": "How often to poll XPENG's Message Centre for notifications. Six requests per poll, one per category; a notification cannot arrive sooner than this. The sensor records the real delay as `delay_s`.",
           "teslamate_provider_enabled": "Run a Tesla-compatible API on the port below so TeslaMate can log this car as if it were a Tesla. Read-only: no command routes are served, so this cannot move or unlock the car. Off by default.",
           "teslamate_provider_port": "The port the provider listens on, reachable from the TeslaMate container or host. Must not be 8123 (Home Assistant itself). 8200 is the default so it does not collide with TeslaMate's own web UI on 4000.",
@@ -233,7 +235,8 @@
       "cert_files_missing": "One or more certificate files are missing from that directory. It must contain ca-chain.crt, client-cert-0.pem and client-key.pem.",
       "token_required": "A token of at least 8 characters is required: the provider is reachable on the network and TeslaMate authenticates with this value.",
       "invalid_port": "Enter a port between 1 and 65535.",
-      "port_conflict": "Port 8123 is Home Assistant's own HTTP server. Pick another port, e.g. 8200."
+      "port_conflict": "Port 8123 is Home Assistant's own HTTP server. Pick another port, e.g. 8200.",
+      "invalid_abrp_token": "That does not look like an ABRP token. Paste the token ABRP shows for the Generic connection (letters, digits and dashes), or leave the field blank."
     }
   },
   "entity": {

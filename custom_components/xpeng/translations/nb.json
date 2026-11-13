@@ -165,6 +165,7 @@
           "cert_dir": "Sertifikatmappe",
           "iccid": "TBox SIM ICCID",
           "usable_battery_kwh": "Brukbar batterikapasitet (kWh)",
+          "abrp_token": "ABRP-brukertoken (valgfritt)",
           "notification_poll_interval": "Avlesningsintervall for meldingssenter (sekunder)",
           "teslamate_provider_enabled": "Aktiver API-leverandøren for TeslaMate",
           "teslamate_provider_port": "Port for TeslaMate-leverandøren",
@@ -192,6 +193,7 @@
           "cert_dir": "Absolutt bane til mappen som inneholder ca-chain.crt, client-cert-0.pem og client-key.pem. Standard: /config/custom_components/xpeng/certs.",
           "iccid": "TBox SIM ICCID. Valgfritt: la det stå tomt, og denne sensoren opprettes ikke; angi det, og integrasjonen legger til én diagnosesensor som viser verdien. Ingen API på appnivå eksponerer det, så les det på bilens skjerm ved å taste *#9925*131# i tastefeltet på hovedenheten.",
           "usable_battery_kwh": "Angi batteripakken i bilen din ut fra størrelsen den er kjent som. En VIN gir bare modellfamilien, så ingenting kan velge dette for deg. Brukbar kWh: G6 66.0 pakke = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 (LFP, MY25 og nyere) = 92.2 | G9 98.0 (NMC, MY23-24) = 93.1. Bare estimatet for parkeringsforbruk bruker den.",
+          "abrp_token": "Sender bilens sanntidsstatus til A Better Route Planner mens en rute planlegges der. Åpne bilen i ABRP-appen, velg Rediger tilkobling og deretter Koble til under Generisk, og lim inn tokenet som vises. La stå tomt for å ikke sende noe.",
           "notification_poll_interval": "Hvor ofte XPENGs meldingssenter leses for varsler. Seks forespørsler per avlesning, én per kategori; et varsel kan ikke ankomme raskere enn dette. Sensoren registrerer den reelle forsinkelsen som `delay_s`.",
           "teslamate_provider_enabled": "Kjør et Tesla-kompatibelt API på porten nedenfor, slik at TeslaMate kan logge denne bilen som om den var en Tesla. Skrivebeskyttet: ingen kommandoruter serveres, så dette kan ikke flytte eller låse opp bilen. Av som standard.",
           "teslamate_provider_port": "Porten leverandøren lytter på, tilgjengelig fra TeslaMate-containeren eller verten. Kan ikke være 8123 (Home Assistant selv). 8200 er standard, så den ikke kolliderer med TeslaMates eget webgrensesnitt på 4000.",
@@ -233,7 +235,8 @@
       "cert_files_missing": "Én eller flere sertifikatfiler mangler i den mappen. Den må inneholde ca-chain.crt, client-cert-0.pem og client-key.pem.",
       "token_required": "Det kreves et token på minst 8 tegn: leverandøren er tilgjengelig på nettverket, og TeslaMate autentiserer med denne verdien.",
       "invalid_port": "Angi en port mellom 1 og 65535.",
-      "port_conflict": "Port 8123 er Home Assistants egen HTTP-server. Velg en annen port, f.eks. 8200."
+      "port_conflict": "Port 8123 er Home Assistants egen HTTP-server. Velg en annen port, f.eks. 8200.",
+      "invalid_abrp_token": "Dette ser ikke ut som et ABRP-token. Lim inn tokenet ABRP viser for den generiske tilkoblingen (bokstaver, tall og bindestrek), eller la feltet stå tomt."
     }
   },
   "entity": {

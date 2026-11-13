@@ -171,6 +171,10 @@ CONF_ALLOW_WAKE: Final = "allow_wake"
 CONF_TESLAMATE_ENABLED: Final = "teslamate_provider_enabled"
 CONF_TESLAMATE_PORT: Final = "teslamate_provider_port"
 CONF_TESLAMATE_TOKEN: Final = "teslamate_provider_token"
+# A Better Route Planner (abrp.py). Blank = no telemetry is sent, which is the
+# default: the token identifies one ABRP user AND one vehicle, so there is
+# nothing sensible to guess or mint here.
+CONF_ABRP_TOKEN: Final = "abrp_token"
 
 # Defaults
 DEFAULT_SCAN_INTERVAL: Final = 60

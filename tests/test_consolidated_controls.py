@@ -591,6 +591,7 @@ class LegacyAndOptionsTests(unittest.IsolatedAsyncioTestCase):
             "CONF_CERT_DIR": "cert_dir",
             "CONF_COMMAND_MODE": "command_mode",
             "CONF_ALLOW_WAKE": "allow_wake",
+            "CONF_ABRP_TOKEN": "abrp_token",
             "DEFAULT_COMMAND_MODE": "safe_plus",
             "PRESET_CUSTOM": policy.PRESET_CUSTOM,
         }
@@ -609,6 +610,7 @@ class LegacyAndOptionsTests(unittest.IsolatedAsyncioTestCase):
         f = SimpleNamespace(
             config_entry=SimpleNamespace(options=stored),
             _validate_teslamate=lambda inp: {},
+            _validate_abrp=lambda inp: {},
             async_create_entry=lambda **kwargs: kwargs,
         )
         result = await ns["async_step_init"](

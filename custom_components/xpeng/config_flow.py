@@ -26,6 +26,7 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
 )
 
+from .abrp import valid_token
 from .command_policy import (
     ALL_GROUPS,
     CommandPolicy,
@@ -53,6 +54,7 @@ from .const import (
     AUTH_METHOD_GOOGLE,
     AUTH_METHOD_IMPORT,
     CONF_ALLOW_WAKE,
+    CONF_ABRP_TOKEN,
     CONF_AUTH_METHOD,
     CONF_CAPTURE_ENABLED,
     CONF_CAPTURE_PATH,
@@ -1600,6 +1602,14 @@ class XPengOptionsFlow(OptionsFlow):
         """Manage the options."""
         errors: dict[str, str] = {}
         if user_input is not None:
+            # The ABRP token is pasted, so trim it: a trailing newline from the
+            # app's copy button would otherwise be stored and sent as part of
+            # the query string, where ABRP reads it as a different token.
+            user_input = dict(user_input)
+            if CONF_ABRP_TOKEN in user_input:
+                user_input[CONF_ABRP_TOKEN] = str(
+                    user_input.get(CONF_ABRP_TOKEN) or ""
+                ).strip()
             # An explicit cert dir must actually hold the mTLS material,
             # otherwise the integration can never connect to the broker.
             # Blank means "use the default dir", which is a valid choice.
@@ -1614,6 +1624,7 @@ class XPengOptionsFlow(OptionsFlow):
             cert_dir = str(user_input.get(CONF_CERT_DIR, "")).strip()
             missing = missing_cert_files(cert_dir) if cert_dir else []
             teslamate_errors = self._validate_teslamate(user_input)
+            abrp_errors = self._validate_abrp(user_input)
             if missing:
                 _LOGGER.error(
                     "Certificate directory %s is missing: %s",
@@ -1623,6 +1634,8 @@ class XPengOptionsFlow(OptionsFlow):
                 errors[CONF_CERT_DIR] = "cert_files_missing"
             elif teslamate_errors:
                 errors.update(teslamate_errors)
+            elif abrp_errors:
+                errors.update(abrp_errors)
             else:
                 mode = str(
                     user_input.get(
@@ -1801,10 +1814,30 @@ class XPengOptionsFlow(OptionsFlow):
                             DEFAULT_USABLE_BATTERY_KWH,
                         ),
                     ): vol.All(vol.Coerce(float), vol.Range(min=10, max=150)),
+                    # Optional ABRP telemetry. The token comes from the ABRP app
+                    # (your car → Edit connection → Link under Generic) and names
+                    # one user AND one vehicle, so the field starts empty and
+                    # blank means "send nothing" - the integration cannot mint it.
+                    vol.Optional(
+                        CONF_ABRP_TOKEN,
+                        default=current.get(CONF_ABRP_TOKEN, ""),
+                    ): str,
                 }
             ),
             errors=errors,
         )
+
+    def _validate_abrp(self, user_input: Mapping[str, Any]) -> dict[str, str]:
+        """Check the optional ABRP token's shape, without asking ABRP.
+
+        Format only on purpose: this form must also work while ABRP is down or
+        the internet is out, and a wrong-but-well-formed token is a question for
+        the log, not for a screen that refuses to save every other option.
+        """
+        token = str(user_input.get(CONF_ABRP_TOKEN) or "").strip()
+        if token and not valid_token(token):
+            return {CONF_ABRP_TOKEN: "invalid_abrp_token"}
+        return {}
 
     def _validate_teslamate(self, user_input: Mapping[str, Any]) -> dict[str, str]:
         """Validate the optional TeslaMate provider fields.

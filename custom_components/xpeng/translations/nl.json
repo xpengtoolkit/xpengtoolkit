@@ -165,6 +165,7 @@
           "cert_dir": "Certificaatmap",
           "iccid": "TBox SIM-ICCID",
           "usable_battery_kwh": "Bruikbare batterijcapaciteit (kWh)",
+          "abrp_token": "ABRP-gebruikerstoken (optioneel)",
           "notification_poll_interval": "Pollinterval van het Berichtencentrum (seconden)",
           "teslamate_provider_enabled": "TeslaMate API-provider inschakelen",
           "teslamate_provider_port": "Poort van de TeslaMate-provider",
@@ -192,6 +193,7 @@
           "cert_dir": "Absoluut pad naar de map met ca-chain.crt, client-cert-0.pem en client-key.pem. Standaard: /config/custom_components/xpeng/certs.",
           "iccid": "TBox SIM-ICCID. Optioneel: laat dit leeg en deze sensor wordt niet aangemaakt; vul je het in, dan voegt de integratie één diagnostische sensor toe die de waarde toont. Geen enkele app-API geeft dit vrij, dus lees het af op het scherm van de auto door *#9925*131# in de kiezer van de head-unit in te voeren.",
           "usable_battery_kwh": "Stel dit in op de batterij van je auto, aan de hand van het getal waaronder die bekend is. Een VIN geeft alleen de modelfamilie, dus niets kan dit voor je invullen. Bruikbare kWh: G6 66,0-batterij = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (MY24 NMC) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 en later) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Alleen de schatting van het verbruik bij stilstand gebruikt dit.",
+          "abrp_token": "Stuurt de live status van je auto naar A Better Route Planner terwijl daar een route wordt gepland. Open in de ABRP-app je auto, kies Verbinding bewerken en dan Koppelen onder Algemeen, en plak het getoonde token. Laat leeg om niets te versturen.",
           "notification_poll_interval": "Hoe vaak het Berichtencentrum van XPENG op meldingen wordt gepolld. Zes verzoeken per peiling, één per categorie; een melding kan niet sneller aankomen dan dit. De sensor legt de werkelijke vertraging vast als `delay_s`.",
           "teslamate_provider_enabled": "Draai een Tesla-compatibele API op de onderstaande poort, zodat TeslaMate deze auto kan loggen alsof het een Tesla is. Alleen-lezen: er worden geen commandoroutes aangeboden, dus dit kan de auto niet verplaatsen of ontgrendelen. Standaard uit.",
           "teslamate_provider_port": "De poort waarop de provider luistert, bereikbaar vanaf de TeslaMate-container of -host. Mag niet 8123 zijn (Home Assistant zelf). 8200 is de standaard, zodat hij niet botst met de eigen webinterface van TeslaMate op 4000.",
@@ -233,7 +235,8 @@
       "cert_files_missing": "In die map ontbreken een of meer certificaatbestanden. De map moet ca-chain.crt, client-cert-0.pem en client-key.pem bevatten.",
       "token_required": "Er is een token van minstens 8 tekens vereist: de provider is bereikbaar op het netwerk en TeslaMate verifieert met deze waarde.",
       "invalid_port": "Voer een poort tussen 1 en 65535 in.",
-      "port_conflict": "Poort 8123 is de eigen HTTP-server van Home Assistant. Kies een andere poort, bijvoorbeeld 8200."
+      "port_conflict": "Poort 8123 is de eigen HTTP-server van Home Assistant. Kies een andere poort, bijvoorbeeld 8200.",
+      "invalid_abrp_token": "Dit lijkt geen ABRP-token. Plak het token dat ABRP toont voor de algemene verbinding (letters, cijfers en streepjes), of laat het veld leeg."
     }
   },
   "entity": {

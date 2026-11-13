@@ -86,6 +86,15 @@ class OptionsFlow:
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
 
+    # The options form is a real screen too: without these the flow's own
+    # `async_show_form`/`async_create_entry` calls would raise AttributeError,
+    # which is why no test walked it before the ABRP token was added.
+    def async_show_form(self, **kwargs):
+        return ConfigFlow.async_show_form(self, **kwargs)
+
+    def async_create_entry(self, **kwargs):
+        return ConfigFlow.async_create_entry(self, **kwargs)
+
 
 def callback(fn):
     return fn
@@ -181,6 +190,7 @@ def _install_const_stub():
         "CONF_CONFIGURED_DEVICE_ID": "configured_device_id",
         "CONF_COMMAND_MODE": "command_mode",
         "CONF_ALLOW_WAKE": "allow_wake",
+        "CONF_ABRP_TOKEN": "abrp_token",
         "DEFAULT_SERVER": "iot-app-global.xiaopeng.com:8885",
         "DEFAULT_COMMAND_MODE": "safe_plus",
     }
@@ -557,6 +567,47 @@ def main() -> int:
         flow3.context["entry_id"] = entry2.entry_id
         r = await flow3.async_step_reauth()
         check("email reauth stays on email path", r.get("type") == "form" and r.get("step_id") == "reauth_confirm")
+
+        # 7. The optional ABRP token lives on the options screen and nowhere
+        #    else: it identifies one ABRP user and one vehicle, so the
+        #    integration cannot mint it, and blank means "send no telemetry".
+        entry_opts = ConfigEntry(data={}, options={})
+        flow_opts = cf.XPengOptionsFlow()
+        flow_opts.hass = _FakeHass(entry_opts)
+        flow_opts.config_entry = entry_opts
+        r = await flow_opts.async_step_init()
+        fields = _form_fields(r)
+        check("the options form offers an ABRP token",
+              "abrp_token" in fields and fields["abrp_token"] == "")
+        bad = await flow_opts.async_step_init({
+            const.CONF_COMMAND_MODE: "full",
+            const.CONF_CERT_DIR: "",
+            const.CONF_ABRP_TOKEN: "not a token",
+        })
+        check("a token that cannot be one is refused",
+              bad.get("type") == "form"
+              and bad.get("errors", {}).get("abrp_token") == "invalid_abrp_token")
+        good_token = "11111111-2222-3333-4444-555555555555"
+        r = await flow_opts.async_step_init({
+            const.CONF_COMMAND_MODE: "full",
+            const.CONF_CERT_DIR: "",
+            const.CONF_ABRP_TOKEN: f"  {good_token}\n",
+        })
+        check("a pasted token is stored trimmed",
+              r.get("type") == "create_entry"
+              and r.get("data", {}).get("abrp_token") == good_token)
+        entry_opts.options = {"abrp_token": good_token}
+        r = await flow_opts.async_step_init()
+        check("and pre-fills on the next visit",
+              _form_fields(r).get("abrp_token") == good_token)
+        r = await flow_opts.async_step_init({
+            const.CONF_COMMAND_MODE: "full",
+            const.CONF_CERT_DIR: "",
+            const.CONF_ABRP_TOKEN: "   ",
+        })
+        check("an empty token turns ABRP off",
+              r.get("type") == "create_entry"
+              and r.get("data", {}).get("abrp_token") == "")
 
     asyncio.run(run())
 
