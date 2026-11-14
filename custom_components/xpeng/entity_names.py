@@ -104,6 +104,7 @@ ENGLISH_ENTITY_NAMES: dict[str, dict[str, str]] = {
     "binary_sensor": {
         "locked": "Lock",
         "charging": "Charging",
+        "battery_preheating": "Battery preheating",
         "plugged_in": "Plugged in",
         "hvac_on": "Climate",
         "hvac_auto": "Climate auto",

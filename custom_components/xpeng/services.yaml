@@ -279,6 +279,37 @@ stop_charge:
         entity:
           integration: xpeng
 
+start_battery_preheating:
+  name: Start battery preheating
+  description: >-
+    Warm the traction battery before a fast charge or a cold start. Measured
+    with the AC charging cable attached; a car that cannot preheat answers with
+    an error code instead of an acknowledgement.
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
+
+stop_battery_preheating:
+  name: Stop battery preheating
+  description: Stop warming the traction battery
+  fields:
+    vehicle_entity_id:
+      name: Vehicle entity
+      description: >-
+        Any entity of the car to target. Omit it only on a single-car
+        install; with several, the call would otherwise act on the first
+        entry.
+      selector:
+        entity:
+          integration: xpeng
+
 open_trunk:
   name: Open trunk
   description: Open the vehicle trunk

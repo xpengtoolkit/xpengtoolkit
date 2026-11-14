@@ -40,6 +40,8 @@ SERVICE_LOCK = "lock"
 SERVICE_UNLOCK = "unlock"
 SERVICE_START_CHARGE = "start_charge"
 SERVICE_STOP_CHARGE = "stop_charge"
+SERVICE_START_BATTERY_PREHEATING = "start_battery_preheating"
+SERVICE_STOP_BATTERY_PREHEATING = "stop_battery_preheating"
 SERVICE_OPEN_TRUNK = "open_trunk"
 SERVICE_CLOSE_TRUNK = "close_trunk"
 SERVICE_OPEN_CHARGE_PORT = "open_charge_port"
@@ -544,6 +546,23 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         data = _entry_for_call(hass, call)
         await _send_confirmed(hass, 4, {"cmd_type": 1, "cmd_value": 0}, data)
 
+    async def handle_start_battery_preheating(call: ServiceCall) -> None:
+        """Start warming the pack on the AC cable.
+
+        ``cmd_type 5`` is ``startBatteryWarm`` in docs/COMMAND_RESEARCH.md (the
+        same service-4 family as start/stop charge). Confirmed by a P7+ owner in
+        issue #31: acked 200, and the official app showed the heater running.
+        That test had the AC cable attached; whether the car refuses it without
+        one is not measured, so nothing is guarded here - an acknowledgement and
+        a refusal are both answers from the car.
+        """
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 4, {"cmd_type": 5, "cmd_value": 1}, data)
+
+    async def handle_stop_battery_preheating(call: ServiceCall) -> None:
+        data = _entry_for_call(hass, call)
+        await _send_confirmed(hass, 4, {"cmd_type": 5, "cmd_value": 0}, data)
+
     async def handle_open_trunk(call: ServiceCall) -> None:
         data = _entry_for_call(hass, call)
         await hass.async_add_executor_job(
@@ -1024,6 +1043,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     _register(SERVICE_UNLOCK, handle_unlock)
     _register(SERVICE_START_CHARGE, handle_start_charge)
     _register(SERVICE_STOP_CHARGE, handle_stop_charge)
+    _register(SERVICE_START_BATTERY_PREHEATING, handle_start_battery_preheating)
+    _register(SERVICE_STOP_BATTERY_PREHEATING, handle_stop_battery_preheating)
     _register(SERVICE_OPEN_TRUNK, handle_open_trunk)
     _register(SERVICE_CLOSE_TRUNK, handle_close_trunk)
     _register(SERVICE_OPEN_CHARGE_PORT, handle_open_charge_port)
@@ -1075,6 +1096,8 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_UNLOCK,
         SERVICE_START_CHARGE,
         SERVICE_STOP_CHARGE,
+        SERVICE_START_BATTERY_PREHEATING,
+        SERVICE_STOP_BATTERY_PREHEATING,
         SERVICE_OPEN_TRUNK,
         SERVICE_CLOSE_TRUNK,
         SERVICE_OPEN_CHARGE_PORT,

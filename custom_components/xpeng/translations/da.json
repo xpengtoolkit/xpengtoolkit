@@ -482,6 +482,9 @@
       "charging": {
         "name": "Opladning"
       },
+      "battery_preheating": {
+        "name": "Batteriopvarmning"
+      },
       "plugged_in": {
         "name": "Tilsluttet"
       },

@@ -482,6 +482,9 @@
       "charging": {
         "name": "Laden"
       },
+      "battery_preheating": {
+        "name": "Batterijvoorverwarming"
+      },
       "plugged_in": {
         "name": "Aangesloten"
       },

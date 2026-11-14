@@ -482,6 +482,9 @@
       "charging": {
         "name": "Lading"
       },
+      "battery_preheating": {
+        "name": "Batteriforvarming"
+      },
       "plugged_in": {
         "name": "Tilkoblet"
       },

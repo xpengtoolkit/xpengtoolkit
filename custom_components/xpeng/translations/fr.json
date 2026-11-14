@@ -482,6 +482,9 @@
       "charging": {
         "name": "Recharge"
       },
+      "battery_preheating": {
+        "name": "Préchauffage batterie"
+      },
       "plugged_in": {
         "name": "Branché"
       },

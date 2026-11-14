@@ -482,6 +482,9 @@
       "charging": {
         "name": "Charging"
       },
+      "battery_preheating": {
+        "name": "Battery preheating"
+      },
       "plugged_in": {
         "name": "Plugged in"
       },

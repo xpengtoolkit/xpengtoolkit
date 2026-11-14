@@ -753,6 +753,21 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[XPengBinarySensorEntityDescription, ...] = (
         ) if isinstance(v, dict) else False,
     ),
     XPengBinarySensorEntityDescription(
+        key="battery_preheating",
+        translation_key="battery_preheating",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        # It arrives in every service-4 acknowledgement - the same flat charge
+        # block as ``charge_status`` and ``max_range_charge`` (measured
+        # 2026-11-03) - which ``_merge_command_state`` folds into
+        # ``instant.charge``. Whether the full push also carries it is not
+        # measured yet; if it does, this sensor follows the heater by itself, and
+        # if it does not it still moves on any charge command, which is what
+        # starting the preheat from here is. Issue #31.
+        value_path="msg_content.instant.charge.battery_keep_warm_status",
+        on_value=1,
+        icon="mdi:heat-wave",
+    ),
+    XPengBinarySensorEntityDescription(
         key="plugged_in",
         translation_key="plugged_in",
         device_class=BinarySensorDeviceClass.PLUG,

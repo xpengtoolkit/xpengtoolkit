@@ -222,6 +222,8 @@ SERVICE_GROUPS: Mapping[str, str] = {
     # Charging.
     "start_charge": GROUP_CHARGING,
     "stop_charge": GROUP_CHARGING,
+    "start_battery_preheating": GROUP_CHARGING,
+    "stop_battery_preheating": GROUP_CHARGING,
     "set_charge_limit": GROUP_CHARGING,
     "set_charge_current": GROUP_CHARGING,
     "open_charge_port": GROUP_CHARGING,
