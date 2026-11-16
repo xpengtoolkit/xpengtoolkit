@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .command_policy import GROUP_ACCESS, GROUP_SECURING, default_policy
 from .const import COMMAND_NOT_SENT_MESSAGE, DOMAIN
 from .coordinator import XPengDataCoordinator
+from .door_guard import age_attributes
 from .entity import XPengEntity
 from .mqtt_client import XPengMQTTClient
 
@@ -77,6 +78,20 @@ class XPengLock(XPengEntity, LockEntity):
         if val is None:
             return None
         return val == 1  # 1 = locked
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Age of the door snapshot behind this state (issue #32).
+
+        ``last_data_update`` moves on every push, but the door block is the one
+        a parked car stops sending first: after walk-away locking the car is
+        already asleep, so this entity can read "unlocked" for hours while the
+        rest of the state is minutes old and nothing says which is which. The
+        attribute is the section's own clock, not the state's.
+        """
+        return age_attributes(
+            getattr(self.coordinator, "door_data_timestamp", None)
+        )
 
     async def _send_and_refresh(self, msg_content: dict) -> None:
         """Send command then wake car to refresh state.

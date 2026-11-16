@@ -63,6 +63,10 @@ MODULES = (
     "health.py",
     "xpeng_errors.py",
     "vin_descriptor.py",
+    # Issue #32: door_guard.py decides which door values are believed and how
+    # old the section is; it is loaded by path in tests and imported by the
+    # coordinator, cover.py and lock.py.
+    "door_guard.py",
 )
 
 #: Names supplied by Home Assistant at runtime through `__getattr__` tricks or

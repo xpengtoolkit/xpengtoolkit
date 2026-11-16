@@ -18,6 +18,7 @@ from .charge_port import charge_port_state, controls_enabled
 from .command_execution import async_send_confirmed
 from .command_policy import GROUP_ACCESS, GROUP_CHARGING, GROUP_SECURING, default_policy
 from .const import DOMAIN
+from .door_guard import age_attributes, trunk_is_closed
 from .entity import XPengEntity
 from .vehicle_capabilities import from_coordinator
 
@@ -113,9 +114,9 @@ class XPengCover(XPengEntity, CoverEntity):
             # section can remain closed while the boot is physically open.
             value = instant.get("door", {}).get("trunk_ajar_st_new")
             if value is not None and not (type(value) is int and value < 0):
-                return ({0: True, 1: True, 3: False, 4: False, 5: False,
-                         7: False, 8: False}.get(value)
-                        if type(value) is int else None)
+                # The same map the widget fallback is judged by (door_guard),
+                # so a state the merge accepts cannot read differently here.
+                return trunk_is_closed(value)
             value = instant.get("tail", {}).get("tail_status")
             return {0: True, 1: False}.get(value) if type(value) is int else None
         if self._key == "charge_port":
@@ -152,6 +153,12 @@ class XPengCover(XPengEntity, CoverEntity):
                 "open_behavior": "ventilation",
                 "close_supported": True,
             }
+        if self._key == "trunk":
+            # The trunk reads the door section too, which a sleeping car stops
+            # pushing before it even locks (issue #32): same age, same reason.
+            return age_attributes(
+                getattr(self.coordinator, "door_data_timestamp", None)
+            )
         return {}
 
     async def _async_send(self, command) -> None:

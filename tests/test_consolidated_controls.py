@@ -8,6 +8,7 @@ _IMPORTS = ImportIsolation()
 import asyncio
 import ast
 import importlib.util
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 import types
@@ -80,16 +81,26 @@ module(
     CoverEntityFeature=Feature,
 )
 module("homeassistant.components.switch", SwitchEntity=type("SwitchEntity", (), {}))
+module(
+    "homeassistant.components.lock",
+    LockEntity=type("LockEntity", (), {}),
+)
 module("homeassistant.config_entries", ConfigEntry=object)
 module("homeassistant.core", HomeAssistant=object)
 module("homeassistant.exceptions", HomeAssistantError=Error)
 module("homeassistant.helpers", __path__=[])
 module("homeassistant.helpers.entity_platform", AddEntitiesCallback=object)
-module("custom_components.xpeng.const", DOMAIN="xpeng", UNIT_AMPERE="A")
+module(
+    "custom_components.xpeng.const",
+    DOMAIN="xpeng",
+    UNIT_AMPERE="A",
+    COMMAND_NOT_SENT_MESSAGE="The command was not sent to the car",
+)
 module("custom_components.xpeng.coordinator", XPengDataCoordinator=object)
 module("custom_components.xpeng.entity", XPengEntity=Base)
 module("custom_components.xpeng.mqtt_client", XPengMQTTClient=object)
 cover = load("custom_components.xpeng.cover", "cover.py")
+lock = load("custom_components.xpeng.lock", "lock.py")
 switch = load("custom_components.xpeng.switch", "switch.py")
 
 VIN = "SYNTHETIC123456789"
@@ -243,6 +254,55 @@ class CoverTests(unittest.IsolatedAsyncioTestCase):
         await e.async_close_cover()
         send.assert_called_with(VIN, 4, {"cmd_type": 3, "cmd_value": 0}, 2)
 
+
+class DoorStateAgeTests(unittest.TestCase):
+    """Issue #32: the lock and trunk say how old their section is.
+
+    The value in `instant.door` survives a sleeping car, so the entity can read
+    "unlocked"/"open" for hours while `last_data_update` moves on energy fields.
+    The attribute is the door section's own clock; with nothing carried this
+    session it is absent rather than zero, because nothing is known about it.
+    """
+
+    def _lock(self, **door):
+        e = lock.XPengLock(coordinator(state(door=door)), SimpleNamespace())
+        return e
+
+    def test_the_lock_reports_the_age_of_its_section(self):
+        e = self._lock(driver_door_lock_st=1)
+        e.coordinator.door_data_timestamp = (
+            datetime.now(timezone.utc) - timedelta(hours=4)
+        )
+        attrs = e.extra_state_attributes
+        self.assertEqual(attrs["door_state_age_seconds"], 4 * 3600)
+        self.assertTrue(attrs["door_state_updated_at"].endswith("+00:00"))
+
+    def test_a_restored_or_fresh_session_reports_no_age(self):
+        e = self._lock(driver_door_lock_st=1)
+        self.assertEqual(e.extra_state_attributes, {})
+        self.assertTrue(e.is_locked)
+
+    def test_the_trunk_reports_the_same_clock(self):
+        e = cover.XPengCover(
+            coordinator(state(door={"trunk_ajar_st_new": 5})),
+            SimpleNamespace(),
+            "trunk",
+        )
+        e.coordinator.door_data_timestamp = (
+            datetime.now(timezone.utc) - timedelta(minutes=90)
+        )
+        attrs = e.extra_state_attributes
+        self.assertEqual(attrs["door_state_age_seconds"], 90 * 60)
+        self.assertFalse(e.is_closed)
+
+    def test_other_covers_do_not_claim_a_door_age(self):
+        e = cover.XPengCover(
+            coordinator(state(window={"front_left_window_position": 100})),
+            SimpleNamespace(),
+            "windows",
+        )
+        e.coordinator.door_data_timestamp = datetime.now(timezone.utc)
+        self.assertNotIn("door_state_age_seconds", e.extra_state_attributes)
 
 class ChargingTests(unittest.IsolatedAsyncioTestCase):
     async def test_switch_uses_measured_state_and_validates_acceptance(self):

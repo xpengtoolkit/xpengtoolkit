@@ -23,6 +23,7 @@ from .charge_guard import with_previous_charge
 from .charge_port import charge_cable_attached
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
+from .door_guard import widget_door_overlay
 from .drive_evidence import (
     FixTracker,
     rest_motion_evidence,
@@ -76,6 +77,13 @@ WIDGET_MERGE_STALE_SECONDS = 300
 # briefly asserted `any_window_open` until the next frame or reconnect
 # restored the truth (observed 2026-10-06 22:20:52 -> 22:21:08, while the
 # silence watchdog was reporting state_silence=474s).
+#
+# Issue #32 (2026-11-16) is the other half of that: "the car pushes it
+# reliably while awake" is exactly why the lock and trunk go stale. The car
+# stops pushing *before* it locks on walk-away, so the last `door` block it
+# sent says "unlocked"/"open" for hours, and no later frame corrects it. The
+# two plain states in that section therefore may come from the widget once the
+# section itself is stale - see door_guard.py for which values are believed.
 _REST_MERGE_EXCLUDED_SECTIONS = frozenset(
     {"window", "door", "ext", "trunkPower"}
 )
@@ -172,6 +180,13 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # traffic (partial pings for door/window/ext must not mask staleness
         # of the energy fields — see _merge_widget_state_if_mqtt_stale).
         self.last_energy_data_timestamp: datetime | None = None
+        #: When the ``door`` section was last actually refreshed by something
+        #: that carried it: a push with a non-empty ``instant.door``, a
+        #: service-9 (lock/trunk) acknowledgement, or the widget fallback below.
+        #: Not ``last_data_timestamp``: a partial frame without a door block
+        #: moves that clock while the lock state stays hours old (issue #32),
+        #: which is why the lock and trunk expose this one's age instead.
+        self.door_data_timestamp: datetime | None = None
         #: When the last accepted state showed the car *moving* (speed, or a
         #: shift other than P), or when the REST fallback saw it move while the
         #: push stream was silent (odometer ahead, or a drive state that is not
@@ -444,6 +459,7 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         replays an old state still ages towards the watchdog's force-upload.
         """
         has_fresh_energy_data = data.pop("has_fresh_energy_data", False)
+        has_door_data = data.pop("has_door_data", False)
         odometer = odometer_from_state(data)
         if is_replay(odometer, self.max_odometer):
             _LOGGER.warning(
@@ -484,6 +500,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.note_drive_evidence(data)
         if has_fresh_energy_data:
             self.last_energy_data_timestamp = self.last_data_timestamp
+        if has_door_data:
+            self.door_data_timestamp = self.last_data_timestamp
         self.state_is_restored = False
         # Update the parked-drain estimate before notifying entities (reads the
         # freshly-set _last_full_data via vehicle_parked / is_charging).
@@ -879,6 +897,35 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             datetime.now(timezone.utc) - self.last_energy_data_timestamp
         ).total_seconds() > seconds
 
+    def door_state_age_seconds(self) -> float | None:
+        """Seconds since the ``door`` section was last really refreshed.
+
+        The door block is the one a parked car stops sending first: it goes
+        quiet *before* the walk-away lock, so the lock and trunk can read
+        values hours old while every energy field in the same state is fresh
+        (issue #32). None means nothing has carried that section yet this
+        session - a restored snapshot is not evidence of when the car last
+        reported its doors, so it is reported as unknown rather than as fresh.
+        """
+        if self.door_data_timestamp is None:
+            return None
+        return max(
+            0.0,
+            (datetime.now(timezone.utc) - self.door_data_timestamp).total_seconds(),
+        )
+
+    def _door_section_stale(
+        self, seconds: float = WIDGET_MERGE_STALE_SECONDS
+    ) -> bool:
+        """Whether the door section is old enough for the fallback to correct.
+
+        The mirror of ``mqtt_energy_stale`` for this element. Unknown counts as
+        stale: there is no held door state worth protecting, and the widget's
+        own values are still value-checked before they are believed.
+        """
+        age = self.door_state_age_seconds()
+        return age is None or age > seconds
+
     def _merge_widget_state_if_mqtt_stale(self, widget: Any) -> None:
         """REST fallback: push widget_state through as if it were an MQTT update.
 
@@ -962,15 +1009,45 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 motion_reason,
             )
         # widget has top-level keys like charge/hvac/door/window/odometer/ext/fuelTank
-        widget_sections = {
-            k: v for k, v in widget.items()
-            if isinstance(v, dict)
-            and k != "timer"
-            and k not in _REST_MERGE_EXCLUDED_SECTIONS
-        }
+        widget_sections: dict[str, Any] = {}
+        door_overlay: dict[str, int] = {}
+        door_refused: list[str] = []
+        for key, val in widget.items():
+            if not isinstance(val, dict) or key == "timer":
+                continue
+            if key not in _REST_MERGE_EXCLUDED_SECTIONS:
+                widget_sections[key] = val
+                continue
+            if key != "door":
+                continue
+            # Issue #32: the lock and trunk are the fields a parked car stops
+            # pushing. Take them from the widget only while the held door
+            # section is stale too, so a fresh push is never overwritten, and
+            # only the values door_guard can interpret.
+            _LOGGER.debug("REST fallback: widget door block %s", val)
+            if self._door_section_stale(WIDGET_MERGE_STALE_SECONDS):
+                door_overlay, door_refused = widget_door_overlay(val)
+                if door_overlay:
+                    widget_sections[key] = door_overlay
+        if door_overlay:
+            _LOGGER.info(
+                "REST fallback: door section was %.0f min old — taking %s from "
+                "the widget (refused: %s)",
+                (self.door_state_age_seconds() or 0.0) / 60,
+                door_overlay,
+                sorted(door_refused) or "none",
+            )
+        elif door_refused:
+            _LOGGER.debug(
+                "REST fallback: refused the widget's door values %s — the held "
+                "section stands; this car may report them on another scale",
+                door_refused,
+            )
         skipped = sorted(
             k for k, v in widget.items()
-            if isinstance(v, dict) and k in _REST_MERGE_EXCLUDED_SECTIONS
+            if isinstance(v, dict)
+            and k in _REST_MERGE_EXCLUDED_SECTIONS
+            and k != "door"
         )
         if skipped:
             _LOGGER.debug(
@@ -1034,6 +1111,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         merged = with_previous_charge(merged, self._last_full_data)
         msg_content = merged.get("msg_content", msg_content)
         self._last_full_data = merged
+        # The widget is a cloud reading taken moments ago, so the door section
+        # is as fresh as this poll - that is what keeps a second overlay from
+        # running against data it just wrote (and what the entities' age
+        # attribute reports).
+        if door_overlay:
+            self.door_data_timestamp = now
         # Teach the MQTT client's partial-merge baseline what the merge just
         # decided. Otherwise the next charge-less partial (a door ping, or the
         # car's own short ack) merges onto the pre-merge snapshot and pushes
@@ -1393,6 +1476,11 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         instant[section] = {**instant.get(section, {}), **fields}
         msg_content["instant"] = instant
         self._last_full_data = {**base, "msg_content": msg_content, "vin": self.vin}
+        if section == "door":
+            # A lock/trunk acknowledgement is a measured door snapshot: the only
+            # door data that arrives on purpose while the car is awake, so it
+            # resets the age the entities report.
+            self.door_data_timestamp = datetime.now(timezone.utc)
         if self._baseline_sink is not None:
             self._baseline_sink(msg_content)
         _LOGGER.debug(

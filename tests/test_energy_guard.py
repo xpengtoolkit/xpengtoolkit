@@ -492,20 +492,22 @@ class TheWatchdogAnswerIsNotMarkedSpecial(unittest.TestCase):
     The reporter's suggestion 3 asked for exactly that. It is not implementable
     where the guard runs: mqtt_client routes the answer to a ``cmd_type`` 2
     force-upload through the same state callback as a spontaneous push, and the
-    only flag it adds (``has_fresh_energy_data``) is set for any frame carrying a
-    charge or odometer block. Nothing distinguishes "the car answered our question
-    a second ago" from "the car volunteered", so the cable is the evidence that
-    has to do the work.
+    only flags it adds (``has_fresh_energy_data``, and ``has_door_data`` since
+    issue #32) are read from the frame itself. Nothing distinguishes "the car
+    answered our question a second ago" from "the car volunteered", so the cable
+    is the evidence that has to do the work.
     """
 
     def source(self):
         return (PKG_DIR / "mqtt_client.py").read_text()
 
     def test_the_response_carries_no_request_correlation(self):
-        """The state payload has exactly three keys, none of them a correlation.
+        """The payload's keys are the state plus per-frame freshness flags.
 
-        Parsed from the AST rather than sliced out of the source, so a reformat
-        cannot quietly turn this into a test of nothing.
+        No msg_id, no command echo, nothing that would tie a state to the
+        request that produced it. Parsed from the AST rather than sliced out of
+        the source, so a reformat cannot quietly turn this into a test of
+        nothing.
         """
         import ast
 
@@ -523,7 +525,14 @@ class TheWatchdogAnswerIsNotMarkedSpecial(unittest.TestCase):
                 shapes.add(tuple(sorted(keys)))
         self.assertEqual(
             shapes,
-            {("has_fresh_energy_data", "msg_content", "vin")},
+            {
+                (
+                    "has_door_data",
+                    "has_fresh_energy_data",
+                    "msg_content",
+                    "vin",
+                )
+            },
             "the state payload gained or lost a key",
         )
 

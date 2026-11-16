@@ -336,6 +336,13 @@ switch, the trunk-power outlet, unlocking, the trunk and the windows.
 | `select.xpeng_<vehicle>_right_rear_seat_heating` | select | Off / Heat 1 / Heat 2 / Heat 3 | Right rear seat heat (`cmd_type` 4) |
 | `select.xpeng_<vehicle>_steering_wheel_heating` | select | Off / Low / Medium / High | Steering-wheel heat |
 
+The door lock and the trunk cover also carry `door_state_updated_at` and
+`door_state_age_seconds`. `instant.door` is the one section a parked car stops
+sending first — it goes quiet *before* the walk-away lock — so the lock and
+trunk can report a value hours old while every energy sensor in the same state
+is fresh. Those two attributes are the section's own clock, and they are absent
+until something has actually carried that section in the current session.
+
 Besides these entities the integration registers services for the same operations
 (and for things no entity covers, such as `execute_scene`, `trigger_ota`,
 `send_navigation` and the HVAC schedule CRUD calls). See the services page.
