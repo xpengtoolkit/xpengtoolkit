@@ -32,6 +32,7 @@ from .drive_evidence import (
 )
 from .energy_guard import (
     charge_section,
+    energy_moved,
     parked_soc_replay,
     soc_of,
     state_is_charging,
@@ -179,6 +180,10 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # actually carried fresh charge/odometer data, not just any MQTT
         # traffic (partial pings for door/window/ext must not mask staleness
         # of the energy fields — see _merge_widget_state_if_mqtt_stale).
+        # And only when that data *moved*: a fan-out replaying the same full
+        # snapshot is not freshness either, and treating it as such keeps the
+        # REST fallback shut for as long as the wedge lasts (issue #34, see
+        # energy_guard.energy_moved).
         self.last_energy_data_timestamp: datetime | None = None
         #: When the ``door`` section was last actually refreshed by something
         #: that carried it: a push with a non-empty ``instant.door``, a
@@ -460,6 +465,9 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         has_fresh_energy_data = data.pop("has_fresh_energy_data", False)
         has_door_data = data.pop("has_door_data", False)
+        # Held before anything below replaces it: whether this frame moved an
+        # energy value is decided against the state it is replacing.
+        previous = self._last_full_data
         odometer = odometer_from_state(data)
         if is_replay(odometer, self.max_odometer):
             _LOGGER.warning(
@@ -498,7 +506,9 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # before the entities are notified, so a transition is logged with the
         # evidence that caused it (issue #3 diagnostics).
         self.note_drive_evidence(data)
-        if has_fresh_energy_data:
+        if has_fresh_energy_data and energy_moved(data, previous):
+            # A repeated full snapshot is the fan-out replaying itself, not the
+            # car reporting: do not let it hold the fallback gate shut (#34).
             self.last_energy_data_timestamp = self.last_data_timestamp
         if has_door_data:
             self.door_data_timestamp = self.last_data_timestamp
@@ -890,6 +900,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         This is the single answer to "is the widget better than what we hold?".
         The merge uses it to protect a fresh push, and the fast widget poll uses
         it to decide whether asking the widget is worth an API call.
+
+        "Fresh" means the energy values *moved*, not merely that a frame carried
+        the fields: a wedged fan-out replays the same snapshot, and counting a
+        replay as freshness kept this gate shut for as long as the wedge lasted
+        while the app was already current (issue #34). See
+        ``energy_guard.energy_moved``.
         """
         if self._last_full_data is None or self.last_energy_data_timestamp is None:
             return True

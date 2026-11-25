@@ -79,6 +79,27 @@ class ThePollUsesTheFallbacksOwnRules(unittest.TestCase):
         self.assertIn('widget_timer_state["stopped"] = True', INIT[start:end])
 
 
+class TheStatusReportsTheCadenceItActuallyUses(unittest.TestCase):
+    """Issue #34: the polling-status sensor read a field nobody wrote.
+
+    `rest_poll_interval_seconds` was always 0 because `sensor.py` reads
+    ``poll_status["rest_interval_seconds"]`` and no ``set_poll_status`` call
+    published it. A reporter diagnosing a silent fallback ("REST API polling is
+    configured to 300 seconds" against a diagnostic that said 0) had no way to
+    tell a misconfiguration from a bug.
+    """
+
+    def test_the_interval_is_published(self):
+        body = _poll_body()
+        self.assertNotIn("rest_interval_seconds", body)
+        self.assertIn("rest_interval_seconds=", INIT)
+
+    def test_the_sensor_still_reads_it(self):
+        sensor = (COMP / "sensor.py").read_text(encoding="utf-8")
+        self.assertIn('"rest_poll_interval_seconds"', sensor)
+        self.assertIn('"rest_interval_seconds"', sensor)
+
+
 class TheSingleReadIsCheap(unittest.TestCase):
     def test_it_reads_the_widget_with_the_vehicle_type_code(self):
         start = INIT.index("def _fetch_widget_state_sync(")

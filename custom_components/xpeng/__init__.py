@@ -1347,6 +1347,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator.set_poll_status(
         scan_interval_seconds=scan_interval,
         parked_scan_interval_seconds=parked_scan_interval,
+        # Issue #34: `sensor.py` has always read this and nothing ever wrote it,
+        # so the diagnostic said 0 however the entry was configured - a reporter
+        # with "REST API polling is configured to 300 seconds" against a
+        # snapshot reading 0 could not tell a misconfiguration from a bug. It is
+        # also the interval the widget-only fallback poll runs at, which is the
+        # cadence being asked about when the fallback looks asleep. 0 when the
+        # REST tier is unavailable, because then nothing is polling.
+        rest_interval_seconds=(int(rest_scan_interval) if api_available else 0),
         # The periodic timer sets its own `last_sent` to now at setup, so the
         # first query is a whole interval away - an hour, on a parked car.
         # Published under its own key rather than as `last_query_at` because no

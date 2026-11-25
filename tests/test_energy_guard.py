@@ -572,6 +572,92 @@ class TheFallbackGateHasOneDefinition(unittest.TestCase):
         self.assertNotIn("> 300", body, "the gate must not be re-hardcoded")
 
 
+class TheGateCountsMovementNotPresence(unittest.TestCase):
+    """Issue #34: a replayed snapshot is not freshness.
+
+    Measured by trolletrollehus-sudo on 2026-11-25 (G9, 0.6.50): SOC and
+    odometer sat for hours while ``mqtt_connected`` was true, and
+    ``seconds_since_data`` was minutes old at the moment of the snapshot.
+    A wedged fan-out replays the last snapshot, and a *full* replay carries a
+    charge and odometer block identical to the held state - so "this frame
+    carried energy fields" was read as "this frame carried energy data", the
+    fallback's clock moved, ``mqtt_energy_stale()`` never opened, and the REST
+    widget was never asked. Neither the widget merge nor the fast fallback poll
+    could correct anything, for as long as the wedge lasted.
+    """
+
+    def _frame(self, soc, *, charging=None, odo=62234):
+        frame = _state(soc, odo=odo, charging=charging)
+        frame["has_fresh_energy_data"] = True
+        return frame
+
+    def test_an_identical_full_replay_does_not_close_the_gate(self):
+        coord = _coordinator_with(_state(60))
+        self.assertTrue(coord.set_vehicle_data(self._frame(60)))
+        backdated = datetime.now(timezone.utc) - timedelta(minutes=20)
+        coord.last_energy_data_timestamp = backdated
+        self.assertTrue(coord.set_vehicle_data(self._frame(60)))
+        self.assertEqual(coord.last_energy_data_timestamp, backdated)
+        self.assertTrue(coord.mqtt_energy_stale())
+
+    def test_a_moved_value_closes_it_again(self):
+        coord = _coordinator_with(_state(60))
+        coord.last_energy_data_timestamp = (
+            datetime.now(timezone.utc) - timedelta(minutes=20)
+        )
+        self.assertTrue(coord.set_vehicle_data(self._frame(59)))
+        self.assertLess(coord.last_energy_data_timestamp, datetime.now(timezone.utc))
+        self.assertFalse(coord.mqtt_energy_stale())
+
+    def test_a_moved_charge_field_with_the_same_soc_counts(self):
+        """A session starting is a real change even at an unchanged SoC."""
+        coord = _coordinator_with(_state(60))
+        coord.last_energy_data_timestamp = (
+            datetime.now(timezone.utc) - timedelta(minutes=20)
+        )
+        self.assertTrue(coord.set_vehicle_data(self._frame(60, charging=True)))
+        self.assertFalse(coord.mqtt_energy_stale())
+
+
+class EnergyMovementIsAComparison(unittest.TestCase):
+    """energy_guard.energy_moved, the verdict the gate is built on."""
+
+    def _state(self, **sections):
+        return {"msg_content": {"instant": sections}}
+
+    def test_the_first_frame_moved_something(self):
+        self.assertTrue(energy_guard.energy_moved(self._state(charge={"battery_soc": 60}), None))
+
+    def test_identical_sections_did_not_move(self):
+        held = self._state(charge={"battery_soc": 60}, odometer={"total_mileage": 1000})
+        self.assertFalse(
+            energy_guard.energy_moved(
+                self._state(charge={"battery_soc": 60}, odometer={"total_mileage": 1000}),
+                held,
+            )
+        )
+
+    def test_either_section_moving_is_enough(self):
+        held = self._state(charge={"battery_soc": 60}, odometer={"total_mileage": 1000})
+        self.assertTrue(
+            energy_guard.energy_moved(
+                self._state(charge={"battery_soc": 60}, odometer={"total_mileage": 1001}),
+                held,
+            )
+        )
+
+    def test_a_section_the_frame_does_not_carry_is_not_a_change(self):
+        held = self._state(charge={"battery_soc": 60}, odometer={"total_mileage": 1000})
+        self.assertFalse(
+            energy_guard.energy_moved(self._state(charge={"battery_soc": 60}), held)
+        )
+
+    def test_an_unreadable_side_counts_as_movement(self):
+        self.assertTrue(
+            energy_guard.energy_moved(self._state(charge={"battery_soc": 60}), "restored")
+        )
+
+
 class TheMergeTeachesTheMqttBaseline(unittest.TestCase):
     def test_the_adopted_content_is_the_merged_state(self):
         held = _state(50)

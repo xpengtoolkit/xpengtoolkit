@@ -168,6 +168,23 @@ What is left on the graph is the real trend at whole-percent resolution. A rise 
 more than one percent while parked, idle and unplugged does not happen — if one
 appears, that line names it.
 
+### A frozen SOC that the fallback never corrected (before 0.6.51)
+
+Issue [#34](https://github.com/xpengtoolkit/xpengtoolkit/issues/34) is the fallback's
+own version of that trap. A wedged fan-out does not only fall silent — it replays the
+last snapshot. A *partial* replay was always dropped ("nothing new"), but a **full**
+replay reached the coordinator, and "this frame carried charge/odometer fields" was
+being read as "this frame carried energy data". The fallback's staleness clock was
+re-stamped every few minutes, so `mqtt_energy_stale()` never opened: the widget was
+never asked, nothing else could correct the reading, and Home Assistant showed 48 %
+for hours while the official app already had 43–45 % and `force_update` fixed it
+instantly.
+
+From **0.6.51** the clock moves only when the energy values **change**, so a replayed
+snapshot ages the gate open and the REST fallback takes over within
+`rest_scan_interval`. A frame whose sections are identical to the held state is not
+freshness either way, which is exactly what makes a replay distinguishable.
+
 ### A scheduled charge that nobody watched, and the SOC that froze (before 0.6.40)
 
 "A parked car's charge can only fall" has one other exception, and issue

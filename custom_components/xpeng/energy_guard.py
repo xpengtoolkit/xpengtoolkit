@@ -122,6 +122,48 @@ def charge_section(state: Any) -> dict:
     return charge if isinstance(charge, dict) else {}
 
 
+#: The ``instant`` sections whose movement makes a frame "energy data" for the
+#: REST fallback gate - the same pair the MQTT client reports as
+#: ``has_fresh_energy_data``.
+ENERGY_SECTIONS = ("charge", "odometer")
+
+
+def energy_moved(new: Any, previous: Any) -> bool:
+    """Whether a frame moved an energy value, instead of repeating one.
+
+    Issue #34 (2026-11-25) is why this exists one layer below
+    ``parked_soc_replay``. A wedged fan-out replays the last snapshot, and a
+    *full* replay carries charge and odometer blocks identical to the held
+    state. The client's partial-merge path drops an identical merge ("nothing
+    new"), but a full state reaches the coordinator, where "the frame carried
+    energy fields" was read as "the frame carried energy data". That re-stamped
+    the fallback's staleness clock, so ``mqtt_energy_stale()`` never opened, the
+    REST widget was never asked, and a car whose cloud had nothing new to say
+    looked fresh for hours while the official app was already current.
+
+    Comparing the sections is what makes a replay distinguishable at all: a
+    replay is defined by carrying the values already held.
+
+    Unknown on either side counts as moved - the first frame, and the first
+    frame after a restore, must not be mistaken for a replay of themselves.
+    A section the new frame does not carry is not evidence of change either
+    way: the client merges absent sections from its baseline, so a missing one
+    means "nothing said", not "went to zero".
+    """
+    if not isinstance(new, dict) or not isinstance(previous, dict):
+        return True
+    new_instant = _dig(new, "msg_content", "instant")
+    old_instant = _dig(previous, "msg_content", "instant")
+    if not isinstance(new_instant, dict) or not isinstance(old_instant, dict):
+        return True
+    for section in ENERGY_SECTIONS:
+        if section not in new_instant:
+            continue
+        if new_instant.get(section) != old_instant.get(section):
+            return True
+    return False
+
+
 def parked_soc_replay(
     candidate: Any,
     held: Any,
